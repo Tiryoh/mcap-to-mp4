@@ -1,0 +1,24 @@
+[tool.poetry]
+name = "mcap-to-mp4"
+version = "0.1.0"
+description = ""
+authors = ["Daisuke Sato"]
+license = "MIT License"
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.10"
+mcap = "^1.1.1"
+mcap-ros2-support = "^0.5.3"
+poetry = "^1.8.0"
+pillow = "^10.2.0"
+numpy = "^1.26.4"
+imageio = {extras = ["ffmpeg"], version = "^2.34.0"}
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.scripts]
+mcap-to-mp4 = "mcap_to_mp4.cli:main"
