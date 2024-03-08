@@ -13,7 +13,7 @@ A tool to convert ROS topics recored with [mcap](https://mcap.dev/) to MP4 file
     * imageio
 * ffmpeg
 
-## Usage
+## QuickStart
 
 ### pip
 
