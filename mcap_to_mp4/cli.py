@@ -42,31 +42,31 @@ def main():
     topic_list = get_image_topic_list(args.input)
     if args.topic is None:
         print(topic_list)
+    else:
+        print(f"Converting {args.topic} to MP4...")
+        ims = []
+        diff_timestamp = []
+        prev_timestamp = 0
 
-    print(f"Converting {args.topic} to MP4...")
-    ims = []
-    diff_timestamp = []
-    prev_timestamp = 0
+        with open(args.input, "rb") as f:
+            reader = make_reader(f, decoder_factories=[DecoderFactory()])
+            for schema, channel, message, ros_msg in reader.iter_decoded_messages():
+                if schema.name == "sensor_msgs/msg/Image" and channel.topic == args.topic:
+                    img_array = np.frombuffer(ros_msg.data, dtype=np.uint8).reshape((ros_msg.height, ros_msg.width, 3))
+                    img = Image.fromarray(img_array)
+                    ims.append(img)
+                    diff_timestamp.append(message.log_time - prev_timestamp)
+                    prev_timestamp = message.log_time
+                    print(".", end="")
 
-    with open(args.input, "rb") as f:
-        reader = make_reader(f, decoder_factories=[DecoderFactory()])
-        for schema, channel, message, ros_msg in reader.iter_decoded_messages():
-            if schema.name == "sensor_msgs/msg/Image" and channel.topic == args.topic:
-                img_array = np.frombuffer(ros_msg.data, dtype=np.uint8).reshape((ros_msg.height, ros_msg.width, 3))
-                img = Image.fromarray(img_array)
-                ims.append(img)
-                diff_timestamp.append(message.log_time - prev_timestamp)
-                prev_timestamp = message.log_time
-                print(".", end="")
-
-    print()
-    print(f"Total {len(diff_timestamp)+1} frames")
-    print("Saving file...")
-    video_writer = imageio.get_writer(args.output, fps=1/mean(diff_timestamp[1:])*10**9)
-    for frame in ims:
-        video_writer.append_data(np.array(frame))
-    video_writer.close()
-    print("Done.")
+        print()
+        print(f"Total {len(diff_timestamp)+1} frames")
+        print("Saving file...")
+        video_writer = imageio.get_writer(args.output, fps=1/mean(diff_timestamp[1:])*10**9)
+        for frame in ims:
+            video_writer.append_data(np.array(frame))
+        video_writer.close()
+        print("Done.")
 
 if __name__ == "__main__":
     main()
