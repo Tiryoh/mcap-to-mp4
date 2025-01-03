@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "mcap-to-mp4"
-version = "0.1.0"
+version = "0.1.1"
 description = "A tool to convert ROS topics recored with mcap to MP4 file"
 authors = ["Daisuke Sato"]
 license = "MIT License"
