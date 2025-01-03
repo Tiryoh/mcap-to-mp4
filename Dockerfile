@@ -1,4 +1,4 @@
-FROM --platform=amd64 python:3.10-slim-bookworm as base
+FROM python:3.10-slim-bookworm AS base
 
 # Install ffmpeg
 RUN apt-get update -qq && \
@@ -17,9 +17,9 @@ RUN poetry install && poetry build && poetry env remove --all
 RUN pip install dist/mcap_to_mp4-0.1.0-py3-none-any.whl
 
 WORKDIR /works
-CMD ["mcap-to-mp4"]
+ENTRYPOINT [ "mcap-to-mp4" ]
 
-# FROM base as develop
+# FROM base AS develop
 
 # # Enable apt-get completion
 # RUN rm /etc/apt/apt.conf.d/docker-clean
