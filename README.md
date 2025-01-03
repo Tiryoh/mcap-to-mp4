@@ -19,8 +19,7 @@ A tool to convert ROS topics recored with [mcap](https://mcap.dev/) to MP4 file
 
 ```sh
 # Install
-git clone https://github.com/Tiryoh/mcap-to-mp4.git
-pip install -e .
+pip install mcap-to-mp4
 # Run
 mcap-to-mp4 $path_to_the_mcap_file -t $topic_name -o $outputfilename
 ```
@@ -39,18 +38,25 @@ docker run --rm -it -v "${PWD}:/works" tiryoh/mcap-to-mp4 $path_to_the_mcap_file
 
 ### pip
 
+Install the package from PyPI
+
+```sh
+pip install mcap-to-mp4
+```
+
+Install the pacakge from source (optional)
+
+```sh
+# optional
+git clone https://github.com/Tiryoh/mcap-to-mp4.git
+pip install -e .
+```
+
 Download sample mcap rosbag2 file
 
 ```sh
 wget "https://drive.usercontent.google.com/download?id=1TxKxq-SN_9ryiFxH6kQG07Gy90_bpnWW&confirm=xxx" -O "realsense_rosbag2.zip"
 unzip realsense_rosbag2.zip
-```
-
-Install the package
-
-```sh
-git clone https://github.com/Tiryoh/mcap-to-mp4.git
-pip install -e .
 ```
 
 Run
@@ -61,18 +67,18 @@ mcap-to-mp4 ./rosbag2_2024_02_18-23_35_48/rosbag2_2024_02_18-23_35_48_0.mcap -t 
 
 ### Docker
 
-Download sample mcap rosbag2 file
-
-```sh
-wget "https://drive.usercontent.google.com/download?id=1TxKxq-SN_9ryiFxH6kQG07Gy90_bpnWW&confirm=xxx" -O "realsense_rosbag2.zip"
-unzip realsense_rosbag2.zip
-```
-
 Install the package
 
 ```sh
 git clone https://github.com/Tiryoh/mcap-to-mp4.git
 docker build -t tiryoh/mcap-to-mp4 .
+```
+
+Download sample mcap rosbag2 file
+
+```sh
+wget "https://drive.usercontent.google.com/download?id=1TxKxq-SN_9ryiFxH6kQG07Gy90_bpnWW&confirm=xxx" -O "realsense_rosbag2.zip"
+unzip realsense_rosbag2.zip
 ```
 
 Run
