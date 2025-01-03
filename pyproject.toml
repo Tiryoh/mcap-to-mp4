@@ -9,7 +9,7 @@ repository = "https://github.com/Tiryoh/mcap-to-mp4"
 
 [tool.poetry.dependencies]
 python = "^3.10"
-mcap = "^1.1.1"
+mcap = "^1.2.1"
 mcap-ros2-support = "^0.5.3"
 poetry = "^1.8.0"
 pillow = "^10.2.0"
