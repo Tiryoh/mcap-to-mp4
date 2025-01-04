@@ -44,6 +44,8 @@ jobs:
           git remote set-url origin https://github-actions:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
           git push origin ${{ steps.create-release.outputs.created-branch }} > /dev/null 2>&1
       - name: Create pull-request
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh pr create --title "release: v${{ steps.create-release.outputs.release-version}}" \
             --body "close \#${{ github.event.issue.number }}" \
