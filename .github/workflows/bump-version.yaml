@@ -1,0 +1,52 @@
+name: Bump version for next release
+on:
+  issues:
+    types: [opened, reopened]
+
+permissions:
+  pull-requests: write
+
+jobs:
+  bump-version:
+    runs-on: ubuntu-latest
+    if: startsWith(github.event.issue.title, 'Release ')
+    steps:
+      - name: Install git-chglog
+        run: |
+          sudo mkdir -p /usr/local/src
+          sudo chmod 777 /usr/local/src
+          cd /usr/local/src
+          wget https://github.com/git-chglog/git-chglog/releases/download/v0.15.4/git-chglog_0.15.4_linux_amd64.tar.gz
+          tar zxvf git-chglog*.tar.gz
+          sudo ln /usr/local/src/git-chglog /bin/git-chglog
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: '0'
+      - name: Create release branch
+        id: create-release
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git remote set-url origin https://github.com/${{ github.repository }}.git
+          export VERSION=$(echo ${{ github.event.issue.title }} | sed -E 's/Release v?([0-9\.]*)/\1/g')
+          export BRANCH=release/v$VERSION
+          bash .github/scripts/update_changelog.sh $VERSION
+          bash .github/scripts/update_version.sh $VERSION
+          git switch -c $BRANCH
+          git add .
+          git commit -m "release: Release v$VERSION"
+          echo release-version=$VERSION >> $GITHUB_OUTPUT
+          echo created-branch=$BRANCH >> $GITHUB_OUTPUT
+      - name: Sync created branch
+        run: |
+          git remote set-url origin https://${GITHUB_ACTOR}:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
+          git push origin ${{ steps.create-release.outputs.created-branch }} > /dev/null 2>&1
+      - name: Create pull-request
+        run: |
+          gh pr create --title "release: v${{ steps.create-release.outputs.release-version}}" \
+            --body "close \#${{ github.event.issue.number }}" \
+            --base main \
+            --head ${{ steps.create-release.outputs.created-branch }} \
+            --label "Type: Maintenance" \
+            --assignee ${{ github.actor }}
