@@ -2,6 +2,33 @@
 ## [Unreleased]
 
 
+<a name="v0.2.0"></a>
+## [v0.2.0] - 2025-01-05
+### Chore
+- Ignore test files
+- Add CHANGELOG
+- Add git-chglog config
+
+### Features
+- Add pytest action
+- Add unit test
+- Add mypy and flake8 test
+- Add version bump-up action
+
+### Fix
+- Add missing token
+- Fix permission
+- Fix permission error
+- Fix pytest path
+
+### Refactor
+- Fix sytle
+
+
+[Unreleased]: https://github.com/Tiryoh/mcap-to-mp4/compare/v0.2.0...HEAD
+[v0.2.0]: https://github.com/Tiryoh/mcap-to-mp4/compare/v0.1.1...v0.2.0
+
+
 <a name="v0.1.1"></a>
 ## [v0.1.1] - 2025-01-03
 ### Chore
@@ -35,5 +62,4 @@
 - Fix topic list output mode
 
 
-[Unreleased]: https://github.com/Tiryoh/mcap-to-mp4/compare/v0.1.1...HEAD
 [v0.1.1]: https://github.com/Tiryoh/mcap-to-mp4/compare/v0.1.0...v0.1.1
