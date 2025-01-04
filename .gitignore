@@ -1,3 +1,8 @@
+# ignore test files
+realsense_rosbag2.zip
+rosbag2_2024_02_18-23_35_48/*
+output.mp4
+
 # Created by https://www.toptal.com/developers/gitignore/api/python
 # Edit at https://www.toptal.com/developers/gitignore?templates=python
 
