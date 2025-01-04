@@ -55,7 +55,7 @@ jobs:
         shell: bash
         run: |
           source .venv/bin/activate
-          pytest test --junit-xml pytest.xml
+          pytest tests --junit-xml pytest.xml
 
       - name: Publish Test Results
         if: always()
