@@ -1,0 +1,64 @@
+name: pytest
+
+on:
+  push:
+    paths:
+      - '**/*.py'
+      - 'poetry.lock'
+      - 'pyproject.toml'
+      - '.github/workflows/pytest.yaml'
+  pull_request:
+    paths:
+      - '**/*.py'
+      - 'poetry.lock'
+      - 'pyproject.toml'
+      - '.github/workflows/pytest.yaml'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    permissions:
+        checks: write
+        pull-requests: write
+        contents: read
+        issues: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Load cached venv
+        id: cached-poetry-dependencies
+        uses: actions/cache@v4
+        with:
+          path: .venv
+          key: venv-${{ runner.os }}-${{ hashFiles('poetry.lock') }}
+
+      - name: Install Python poetry
+        if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
+        uses: snok/install-poetry@v1
+        with:
+          virtualenvs-create: true
+          virtualenvs-in-project: true
+          installer-parallel: true
+          virtualenvs-path: .venv
+
+      - name: Install dependencies
+        if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
+        run: poetry install --sync --no-interaction
+
+      - name: Run pytest
+        shell: bash
+        run: |
+          source .venv/bin/activate
+          pytest test --junit-xml pytest.xml
+
+      - name: Publish Test Results
+        if: always()
+        uses: EnricoMi/publish-unit-test-result-action@v2
+        with:
+          files: pytest.xml
