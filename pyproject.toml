@@ -17,6 +17,12 @@ numpy = "^1.26.4"
 imageio = {extras = ["ffmpeg"], version = "^2.34.0"}
 
 
+[tool.poetry.group.dev.dependencies]
+flake8 = "^7.1.1"
+flake8-isort = "^6.1.1"
+flake8-unused-arguments = "^0.0.13"
+mypy = "^1.14.1"
+
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
