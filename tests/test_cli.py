@@ -117,4 +117,5 @@ def test_convert_to_mp4_fps():
         convert_to_mp4("dummy.mcap", "/camera/image", "output.mp4")
 
         expected_fps = 1.0  # 1秒間隔なので1fps
-        mock_get_writer.assert_called_once_with("output.mp4", fps=pytest.approx(expected_fps, rel=0.1))
+        mock_get_writer.assert_called_once_with("output.mp4",
+                                                fps=pytest.approx(expected_fps, rel=0.1))
