@@ -917,14 +917,14 @@ tests = ["psutil", "pytest (!=3.3.0)", "pytest-cov"]
 
 [[package]]
 name = "mcap"
-version = "1.2.1"
+version = "1.3.0"
 description = "MCAP libraries for Python"
 optional = false
 python-versions = ">=3.7"
 groups = ["main"]
 files = [
-    {file = "mcap-1.2.1-py3-none-any.whl", hash = "sha256:e55804906e4a60cef90840e5755fa1002420ec59bddb7ea01cdc7e15d5331cdf"},
-    {file = "mcap-1.2.1.tar.gz", hash = "sha256:b7b8223da9235aa2543bf363c3451fd53e163c6539c5cf46cea32aa1b4c78b79"},
+    {file = "mcap-1.3.0-py3-none-any.whl", hash = "sha256:6262a68cd5a9ed7f8fe8fa6330412a87949842782ab42a4800cd033d0f38e4cd"},
+    {file = "mcap-1.3.0.tar.gz", hash = "sha256:5f0d5826ba3b8418508c1d992bada4c5744073f1b3e6d685579f0aca0389fb2f"},
 ]
 
 [package.dependencies]
