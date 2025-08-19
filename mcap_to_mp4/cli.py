@@ -46,6 +46,7 @@ def convert_to_mp4(input_file, topic, output_file) -> None:
     ims = []
     diff_timestamp = []
     prev_timestamp = 0
+    used_encoding = None  # track last seen encoding (only used for bgr8 notification)
 
     with open(input_file, "rb") as f:
         reader = make_reader(f, decoder_factories=[DecoderFactory()])
@@ -55,6 +56,13 @@ def convert_to_mp4(input_file, topic, output_file) -> None:
                 img_channel = int(len(ros_msg.data) / (ros_msg.height * ros_msg.width))
                 img_array = np.frombuffer(ros_msg.data, dtype=np.uint8).reshape(
                     (ros_msg.height, ros_msg.width, img_channel))
+
+                # Convert BGR (bgr8) to RGB
+                encoding = getattr(ros_msg, "encoding", "").lower()
+                used_encoding = encoding or used_encoding
+                if encoding == "bgr8" and img_channel == 3:
+                    img_array = img_array[:, :, ::-1]  # BGR -> RGB
+
                 img = Image.fromarray(img_array)
                 ims.append(img)
                 if not prev_timestamp == 0:
@@ -67,7 +75,10 @@ def convert_to_mp4(input_file, topic, output_file) -> None:
         print("image data too short!!!")
         sys.exit(1)
     if img_channel == 3:
-        print("Converted as RGB image format")
+        if used_encoding == "bgr8":
+            print("Converted from BGR (bgr8) to RGB image format")
+        else:
+            print("Converted as RGB image format")
     else:
         print(f"Converted as {img_channel} channel image format")
     print("Saving file...")
