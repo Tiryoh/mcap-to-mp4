@@ -1,8 +1,23 @@
 # mcap-to-mp4
 
-A tool to convert ROS topics recored with [mcap](https://mcap.dev/) to MP4 file
+A tool to convert ROS 2 topics recorded with rosbag2 recordings in [mcap](https://mcap.dev/) format into MP4 files
+
+**English**  
+This tool provides a simple way to convert ROS 2 topics stored in **rosbag2** recordings using the **MCAP** format into standard MP4 video files.  
+It is especially useful for visualizing and sharing regularly published topics such as camera streams or sensor data.  
+Since the tool assumes that topics are subscribed at a fixed rate, the generated MP4 uses the *average frame interval* of the input messages.  
+This makes the resulting video well-suited for experiment reviews, demos, or presentations.  
+
+**日本語**  
+このツールは、**rosbag2** で **MCAP** 形式として記録された ROS 2 トピックを、標準的な MP4 動画ファイルに変換します。  
+カメラストリームやセンサーデータなど、一定周期で発行されるトピックを可視化・共有するのに特に便利です。  
+トピックが一定周期でサブスクライブできることを前提としており、生成される MP4 は各フレーム間隔の平均値を採用して出力します。  
+そのため、実験の振り返りやデモ、プレゼンテーションに適しています。  
 
 ## Requirements
+
+**Note:** This tool does **NOT** require a ROS 2 runtime environment.  
+You only need Python and the following dependencies:
 
 * Python3
     * mcap
@@ -99,3 +114,4 @@ Unless attributed otherwise, everything in this repository is under the MIT lice
 
 * https://github.com/roboto-ai/robologs-ros-actions
 * https://github.com/mlaiacker/rosbag2video
+
