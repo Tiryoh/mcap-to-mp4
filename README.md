@@ -5,13 +5,15 @@ A tool to convert ROS 2 topics recorded with rosbag2 recordings in [mcap](https:
 **English**  
 This tool provides a simple way to convert ROS 2 topics stored in **rosbag2** recordings using the **MCAP** format into standard MP4 video files.  
 It is especially useful for visualizing and sharing regularly published topics such as camera streams or sensor data.  
-Since the tool assumes that topics are subscribed at a fixed rate, the generated MP4 uses the *average frame interval* of the input messages.  
+By default, the tool assumes fixed-rate topics and uses the *average frame interval* (CFR: Constant Frame Rate) of input messages.  
+When needed, `--timestamp-timing` enables `sensor_msgs/Image.header.stamp`-based timing (VFR: Variable Frame Rate).  
 This makes the resulting video well-suited for experiment reviews, demos, or presentations.  
 
 **日本語**  
 このツールは、**rosbag2** で **MCAP** 形式として記録された ROS 2 トピックを、標準的な MP4 動画ファイルに変換します。  
 カメラストリームやセンサーデータなど、一定周期で発行されるトピックを可視化・共有するのに特に便利です。  
-トピックが一定周期でサブスクライブできることを前提としており、生成される MP4 は各フレーム間隔の平均値を採用して出力します。  
+デフォルトではトピックが一定周期でサブスクライブできることを前提とし、生成される MP4 は各フレーム間隔の平均値（CFR: Constant Frame Rate / 固定フレームレート）を採用して出力します。  
+`--timestamp-timing` を指定すると `sensor_msgs/Image.header.stamp` を使った可変フレームレート（VFR: Variable Frame Rate / 可変フレームレート）で出力します。  
 そのため、実験の振り返りやデモ、プレゼンテーションに適しています。  
 
 ## Requirements
@@ -78,6 +80,9 @@ Run
 
 ```sh
 mcap-to-mp4 ./rosbag2_2024_02_18-23_35_48/rosbag2_2024_02_18-23_35_48_0.mcap -t /camera/color/image_raw -o output.mp4
+
+# Optional: use header.stamp based VFR timing
+mcap-to-mp4 ./rosbag2_2024_02_18-23_35_48/rosbag2_2024_02_18-23_35_48_0.mcap -t /camera/color/image_raw -o output_vfr.mp4 --timestamp-timing
 ```
 
 ### Docker
@@ -100,6 +105,9 @@ Run
 
 ```sh
 docker run --rm -it -v "${PWD}:/works" tiryoh/mcap-to-mp4 ./rosbag2_2024_02_18-23_35_48/rosbag2_2024_02_18-23_35_48_0.mcap -t /camera/color/image_raw -o output.mp4
+
+# Optional: use header.stamp based VFR timing
+docker run --rm -it -v "${PWD}:/works" tiryoh/mcap-to-mp4 ./rosbag2_2024_02_18-23_35_48/rosbag2_2024_02_18-23_35_48_0.mcap -t /camera/color/image_raw -o output_vfr.mp4 --timestamp-timing
 ```
 
 
@@ -114,4 +122,3 @@ Unless attributed otherwise, everything in this repository is under the MIT lice
 
 * https://github.com/roboto-ai/robologs-ros-actions
 * https://github.com/mlaiacker/rosbag2video
-
