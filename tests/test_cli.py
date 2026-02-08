@@ -72,11 +72,14 @@ def test_get_image_topic_list():
 
 
 def create_mock_ros_msg(height=480, width=640, channels=3, encoding="rgb8",
-                        sec=0, nanosec=0, with_header=True):
+                        sec=0, nanosec=0, with_header=True, data_override=None):
     mock_msg = MagicMock()
     mock_msg.height = height
     mock_msg.width = width
-    mock_msg.data = np.zeros((height, width, channels), dtype=np.uint8).tobytes()
+    if data_override is None:
+        mock_msg.data = np.zeros((height, width, channels), dtype=np.uint8).tobytes()
+    else:
+        mock_msg.data = data_override
     mock_msg.encoding = encoding
     if with_header:
         mock_msg.header = SimpleNamespace(stamp=SimpleNamespace(sec=sec, nanosec=nanosec))
@@ -110,6 +113,40 @@ def test_read_frames_and_timestamps_use_header_stamp():
 
     assert len(frames) == 3
     assert stamp_ns == timestamps
+
+
+def test_read_frames_and_timestamps_skip_invalid_frame():
+    mock_reader = MagicMock()
+    mock_schema = MagicMock()
+    mock_schema.name = "sensor_msgs/msg/Image"
+    messages = [
+        (
+            mock_schema,
+            MagicMock(topic="/camera/image"),
+            MagicMock(log_time=10),
+            create_mock_ros_msg(height=0, width=640),
+        ),
+        (
+            mock_schema,
+            MagicMock(topic="/camera/image"),
+            MagicMock(log_time=20),
+            create_mock_ros_msg(height=2, width=2, data_override=b"\x00" * 5),
+        ),
+        (
+            mock_schema,
+            MagicMock(topic="/camera/image"),
+            MagicMock(log_time=30),
+            create_mock_ros_msg(height=2, width=2, channels=3),
+        ),
+    ]
+    mock_reader.iter_decoded_messages.return_value = messages
+
+    with patch('mcap_to_mp4.cli.make_reader', return_value=mock_reader), \
+            patch('builtins.open', mock_open()):
+        frames, stamp_ns, _, _ = read_frames_and_timestamps("dummy.mcap", "/camera/image", False)
+
+    assert len(frames) == 1
+    assert stamp_ns == [30]
 
 
 def test_convert_to_mp4_frame_count():
@@ -174,6 +211,11 @@ def test_build_vfr_durations_ns_policy():
 def test_build_vfr_durations_ns_single_frame():
     durations = build_vfr_durations_ns([12345])
     assert durations == [int(NANOSECONDS_PER_SECOND / DEFAULT_FALLBACK_FPS)]
+
+
+def test_build_vfr_durations_ns_uses_median_reference():
+    durations = build_vfr_durations_ns([0, 1_000_000, 1_000_100, 1_000_200])
+    assert durations == [1_000, 100, 100, 100]
 
 
 def test_convert_to_mp4_timestamp_timing_calls_vfr():

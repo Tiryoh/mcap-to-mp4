@@ -8,7 +8,7 @@ import os
 import subprocess
 import sys
 import tempfile
-from statistics import mean
+from statistics import mean, median
 from typing import List, Optional, Tuple
 
 import imageio
@@ -82,7 +82,14 @@ def read_frames_and_timestamps(input_file: str, topic: str, timestamp_timing: bo
         for schema, channel, message, ros_msg in reader.iter_decoded_messages():
             if schema is not None \
                     and schema.name == "sensor_msgs/msg/Image" and channel.topic == topic:
-                img_channel = int(len(ros_msg.data) / (ros_msg.height * ros_msg.width))
+                num_pixels = ros_msg.height * ros_msg.width
+                if num_pixels == 0 or len(ros_msg.data) % num_pixels != 0:
+                    print("\nWarning: Skipping frame with invalid dimensions or data size.")
+                    continue
+                img_channel = len(ros_msg.data) // num_pixels
+                if img_channel == 0:
+                    print("\nWarning: Skipping frame with invalid channel count.")
+                    continue
                 img_array = np.frombuffer(ros_msg.data, dtype=np.uint8).reshape(
                     (ros_msg.height, ros_msg.width, img_channel))
 
@@ -120,7 +127,7 @@ def build_vfr_durations_ns(timestamps_ns: List[int]) -> List[int]:
 
     raw_deltas = [timestamps_ns[i + 1] - timestamps_ns[i] for i in range(len(timestamps_ns) - 1)]
     positive_deltas = [d for d in raw_deltas if d > 0]
-    reference_duration_ns = int(mean(positive_deltas)) if positive_deltas else fallback_duration_ns
+    reference_duration_ns = int(median(positive_deltas)) if positive_deltas else fallback_duration_ns
 
     durations_ns: List[int] = []
     for index, raw_delta in enumerate(raw_deltas, start=1):
