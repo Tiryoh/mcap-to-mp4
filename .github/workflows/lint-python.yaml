@@ -40,18 +40,21 @@ jobs:
         with:
           python-version: "3.10"
 
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
       - uses: reviewdog/action-setup@v1
         with:
           reviewdog_version: latest
 
       - name: Setup mypy
-        run: |
-          pip install mypy mypy-extensions
-          pip freeze | grep mypy
+        run: uv sync --locked --group dev
 
       - name: Run mypy
         env:
           REVIEWDOG_GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          python3 -m mypy --config-file .mypy.ini . | \
+          uv run python -m mypy --config-file .mypy.ini . | \
             reviewdog -f="mypy" -name="mypy" -reporter="github-pr-review" -filter-mode="diff_context" -fail-level="any" -level="warning"

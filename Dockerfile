@@ -6,15 +6,16 @@ RUN apt-get update -qq && \
     rm -rf /var/lib/apt/lists/*
 
 # Install Python dependencies
-RUN pip install poetry
+RUN pip install --no-cache-dir uv
 
 WORKDIR /tool
-COPY poetry.lock /tool
+COPY uv.lock /tool
 COPY pyproject.toml /tool
 COPY README.md /tool
 COPY mcap_to_mp4 /tool/mcap_to_mp4
-RUN poetry install && poetry build && poetry env remove --all
-RUN pip install dist/mcap_to_mp4-0.1.0-py3-none-any.whl
+RUN uv sync --locked --no-dev
+
+ENV PATH="/tool/.venv/bin:$PATH"
 
 WORKDIR /works
 ENTRYPOINT [ "mcap-to-mp4" ]

@@ -22,7 +22,6 @@ You only need Python and the following dependencies:
 * Python3
     * mcap
     * mcap-ros2-support
-    * poetry
     * pillow
     * numpy
     * imageio
@@ -35,6 +34,15 @@ You only need Python and the following dependencies:
 ```sh
 # Install
 pip install mcap-to-mp4
+# Run
+mcap-to-mp4 $path_to_the_mcap_file -t $topic_name -o $outputfilename
+```
+
+### uv
+
+```sh
+# Install
+uv tool install mcap-to-mp4
 # Run
 mcap-to-mp4 $path_to_the_mcap_file -t $topic_name -o $outputfilename
 ```
@@ -59,12 +67,30 @@ Install the package from PyPI
 pip install mcap-to-mp4
 ```
 
-Install the pacakge from source (optional)
+Install the package from source (optional)
 
 ```sh
 # optional
 git clone https://github.com/Tiryoh/mcap-to-mp4.git
+cd mcap-to-mp4
 pip install -e .
+```
+
+### uv
+
+Install the package from PyPI
+
+```sh
+uv tool install mcap-to-mp4
+```
+
+Install the package from source (optional)
+
+```sh
+# optional
+git clone https://github.com/Tiryoh/mcap-to-mp4.git
+cd mcap-to-mp4
+uv sync --group dev
 ```
 
 Download sample mcap rosbag2 file
@@ -77,6 +103,7 @@ unzip realsense_rosbag2.zip
 Run
 
 ```sh
+# With pip or uv tool install:
 mcap-to-mp4 ./rosbag2_2024_02_18-23_35_48/rosbag2_2024_02_18-23_35_48_0.mcap -t /camera/color/image_raw -o output.mp4
 ```
 
