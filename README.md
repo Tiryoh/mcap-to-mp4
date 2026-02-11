@@ -132,7 +132,7 @@ docker run --rm -it -v "${PWD}:/works" tiryoh/mcap-to-mp4 ./rosbag2_2024_02_18-2
 
 ## License
 
-Copyright 2024 Daisuke Sato
+Copyright 2024-2026 Daisuke Sato
 
 This repository is licensed under the MIT license, see [LICENSE](./LICENSE).  
 Unless attributed otherwise, everything in this repository is under the MIT license.
@@ -141,4 +141,3 @@ Unless attributed otherwise, everything in this repository is under the MIT lice
 
 * https://github.com/roboto-ai/robologs-ros-actions
 * https://github.com/mlaiacker/rosbag2video
-
