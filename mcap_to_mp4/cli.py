@@ -14,9 +14,9 @@ from typing import List, Optional, Tuple
 import imageio
 import mcap
 import numpy as np
-from PIL import Image
 from mcap.reader import make_reader
 from mcap_ros2.decoder import DecoderFactory
+from PIL import Image
 
 NANOSECONDS_PER_SECOND = 1_000_000_000
 DEFAULT_FALLBACK_FPS = 30.0
@@ -127,7 +127,9 @@ def build_vfr_durations_ns(timestamps_ns: List[int]) -> List[int]:
 
     raw_deltas = [timestamps_ns[i + 1] - timestamps_ns[i] for i in range(len(timestamps_ns) - 1)]
     positive_deltas = [d for d in raw_deltas if d > 0]
-    reference_duration_ns = int(median(positive_deltas)) if positive_deltas else fallback_duration_ns
+    reference_duration_ns = (
+        int(median(positive_deltas)) if positive_deltas else fallback_duration_ns
+    )
 
     durations_ns: List[int] = []
     for index, raw_delta in enumerate(raw_deltas, start=1):
