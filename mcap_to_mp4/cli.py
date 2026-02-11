@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # https://github.com/Tiryoh/mcap-to-mp4
-# Copyright 2024 Daisuke Sato <tiryoh@gmail.com>
+# Copyright 2024-2026 Daisuke Sato <tiryoh@gmail.com>
 # MIT License
 
 import argparse
