@@ -8,6 +8,8 @@ import os
 import sys
 from typing import List
 
+import io
+
 import imageio
 import mcap
 from mcap.reader import make_reader
@@ -15,6 +17,8 @@ from mcap_ros2.decoder import DecoderFactory
 import numpy as np
 from PIL import Image
 from statistics import mean
+
+IMAGE_SCHEMAS = {"sensor_msgs/msg/Image", "sensor_msgs/msg/CompressedImage"}
 
 
 def parse_arguments() -> argparse.Namespace:
@@ -36,8 +40,7 @@ def get_image_topic_list(mcap_file_path: str) -> List[str]:
     with open(mcap_file_path, "rb") as f:
         reader = make_reader(f, decoder_factories=[DecoderFactory()])
         for schema, channel, message, ros_msg in reader.iter_decoded_messages():
-            if schema is not None and \
-                    schema.name == "sensor_msgs/msg/Image":
+            if schema is not None and schema.name in IMAGE_SCHEMAS:
                 topic_list.append(channel.topic)
     return list(set(topic_list))
 
@@ -52,18 +55,25 @@ def convert_to_mp4(input_file, topic, output_file) -> None:
         reader = make_reader(f, decoder_factories=[DecoderFactory()])
         for schema, channel, message, ros_msg in reader.iter_decoded_messages():
             if schema is not None \
-                    and schema.name == "sensor_msgs/msg/Image" and channel.topic == topic:
-                img_channel = int(len(ros_msg.data) / (ros_msg.height * ros_msg.width))
-                img_array = np.frombuffer(ros_msg.data, dtype=np.uint8).reshape(
-                    (ros_msg.height, ros_msg.width, img_channel))
+                    and schema.name in IMAGE_SCHEMAS and channel.topic == topic:
+                if schema.name == "sensor_msgs/msg/CompressedImage":
+                    img = Image.open(io.BytesIO(ros_msg.data))
+                    if img.mode != "RGB":
+                        img = img.convert("RGB")
+                    img_channel = 3
+                    used_encoding = getattr(ros_msg, "format", used_encoding)
+                else:
+                    img_channel = int(len(ros_msg.data) / (ros_msg.height * ros_msg.width))
+                    img_array = np.frombuffer(ros_msg.data, dtype=np.uint8).reshape(
+                        (ros_msg.height, ros_msg.width, img_channel))
 
-                # Convert BGR (bgr8) to RGB
-                encoding = getattr(ros_msg, "encoding", "").lower()
-                used_encoding = encoding or used_encoding
-                if encoding == "bgr8" and img_channel == 3:
-                    img_array = img_array[:, :, ::-1]  # BGR -> RGB
+                    # Convert BGR (bgr8) to RGB
+                    encoding = getattr(ros_msg, "encoding", "").lower()
+                    used_encoding = encoding or used_encoding
+                    if encoding == "bgr8" and img_channel == 3:
+                        img_array = img_array[:, :, ::-1]  # BGR -> RGB
 
-                img = Image.fromarray(img_array)
+                    img = Image.fromarray(img_array)
                 ims.append(img)
                 if not prev_timestamp == 0:
                     diff_timestamp.append(message.log_time - prev_timestamp)

@@ -1,6 +1,8 @@
+import io
 from unittest.mock import MagicMock, mock_open, patch
 
 import numpy as np
+from PIL import Image
 import pytest
 
 from mcap_to_mp4.cli import (check_file_exists, convert_to_mp4,
@@ -83,6 +85,61 @@ def test_convert_to_mp4_frame_count():
             patch('builtins.open', mock_open()):
 
         convert_to_mp4("dummy.mcap", "/camera/image", "output.mp4")
+
+        assert mock_writer.append_data.call_count == 3
+
+
+def create_mock_compressed_ros_msg(height=480, width=640):
+    """Create a mock CompressedImage message with JPEG data."""
+    mock_msg = MagicMock()
+    mock_msg.format = "jpeg"
+    img = Image.new("RGB", (width, height), color=(0, 0, 0))
+    buf = io.BytesIO()
+    img.save(buf, format="JPEG")
+    mock_msg.data = buf.getvalue()
+    return mock_msg
+
+
+def test_get_image_topic_list_compressed():
+    mock_reader = MagicMock()
+    mock_schema = MagicMock()
+    mock_schema.name = "sensor_msgs/msg/CompressedImage"
+    mock_channel = MagicMock()
+    mock_channel.topic = "/camera/image/compressed"
+
+    mock_reader.iter_decoded_messages.return_value = [
+        (mock_schema, mock_channel, None, None)
+    ]
+
+    with patch('mcap_to_mp4.cli.make_reader', return_value=mock_reader):
+        with patch('builtins.open', mock_open()):
+            topics = get_image_topic_list('test.mcap')
+            assert topics == ['/camera/image/compressed']
+
+
+def test_convert_to_mp4_compressed_image():
+    mock_reader = MagicMock()
+    mock_schema = MagicMock()
+    mock_schema.name = "sensor_msgs/msg/CompressedImage"
+
+    messages = [
+        (
+            mock_schema,
+            MagicMock(topic="/camera/image/compressed"),
+            MagicMock(log_time=1000000 + t),
+            create_mock_compressed_ros_msg()
+        )
+        for t in range(3)
+    ]
+    mock_reader.iter_decoded_messages.return_value = messages
+
+    mock_writer = MagicMock()
+
+    with patch('mcap_to_mp4.cli.make_reader', return_value=mock_reader), \
+            patch('mcap_to_mp4.cli.imageio.get_writer', return_value=mock_writer), \
+            patch('builtins.open', mock_open()):
+
+        convert_to_mp4("dummy.mcap", "/camera/image/compressed", "output.mp4")
 
         assert mock_writer.append_data.call_count == 3
 
