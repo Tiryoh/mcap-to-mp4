@@ -74,6 +74,7 @@ Install the package from source (optional)
 git clone https://github.com/Tiryoh/mcap-to-mp4.git
 cd mcap-to-mp4
 pip install -e .
+mcap-to-mp4 --help
 ```
 
 ### uv
@@ -91,6 +92,8 @@ Install the package from source (optional)
 git clone https://github.com/Tiryoh/mcap-to-mp4.git
 cd mcap-to-mp4
 uv sync --group dev
+# Run with uv run
+uv run mcap-to-mp4 --help
 ```
 
 Download sample mcap rosbag2 file
@@ -105,6 +108,9 @@ Run
 ```sh
 # With pip or uv tool install:
 mcap-to-mp4 ./rosbag2_2024_02_18-23_35_48/rosbag2_2024_02_18-23_35_48_0.mcap -t /camera/color/image_raw -o output.mp4
+
+# With uv sync (source install):
+uv run mcap-to-mp4 ./rosbag2_2024_02_18-23_35_48/rosbag2_2024_02_18-23_35_48_0.mcap -t /camera/color/image_raw -o output.mp4
 ```
 
 ### Docker
