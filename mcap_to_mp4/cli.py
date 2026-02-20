@@ -57,10 +57,8 @@ def convert_to_mp4(input_file, topic, output_file) -> None:
             if schema is not None \
                     and schema.name in IMAGE_SCHEMAS and channel.topic == topic:
                 if schema.name == "sensor_msgs/msg/CompressedImage":
-                    img = Image.open(io.BytesIO(ros_msg.data))
-                    if img.mode != "RGB":
-                        img = img.convert("RGB")
-                    img_channel = 3
+                    img = Image.open(io.BytesIO(ros_msg.data)).convert("RGB")
+                    img_channel = len(img.getbands())
                     used_encoding = getattr(ros_msg, "format", used_encoding)
                 else:
                     img_channel = int(len(ros_msg.data) / (ros_msg.height * ros_msg.width))
