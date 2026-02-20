@@ -38,8 +38,13 @@ def check_file_exists(file_path: os.PathLike) -> None:
 def get_image_topic_list(mcap_file_path: str) -> List[str]:
     topic_list = []
     with open(mcap_file_path, "rb") as f:
-        reader = make_reader(f, decoder_factories=[DecoderFactory()])
-        for schema, channel, message, ros_msg in reader.iter_decoded_messages():
+        reader = make_reader(f)
+        summary = reader.get_summary()
+        if summary is None:
+            return []
+        schemas = summary.schemas
+        for channel in summary.channels.values():
+            schema = schemas.get(channel.schema_id)
             if schema is not None and schema.name in IMAGE_SCHEMAS:
                 topic_list.append(channel.topic)
     return list(set(topic_list))

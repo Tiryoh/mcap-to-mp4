@@ -37,15 +37,18 @@ def test_check_file_exists_invalid():
 
 
 def test_get_image_topic_list():
-    mock_reader = MagicMock()
     mock_schema = MagicMock()
     mock_schema.name = "sensor_msgs/msg/Image"
     mock_channel = MagicMock()
     mock_channel.topic = "/camera/image"
+    mock_channel.schema_id = 1
 
-    mock_reader.iter_decoded_messages.return_value = [
-        (mock_schema, mock_channel, None, None)
-    ]
+    mock_summary = MagicMock()
+    mock_summary.schemas = {1: mock_schema}
+    mock_summary.channels = {1: mock_channel}
+
+    mock_reader = MagicMock()
+    mock_reader.get_summary.return_value = mock_summary
 
     with patch('mcap_to_mp4.cli.make_reader', return_value=mock_reader):
         with patch('builtins.open', mock_open()):
@@ -101,15 +104,18 @@ def create_mock_compressed_ros_msg(height=480, width=640):
 
 
 def test_get_image_topic_list_compressed():
-    mock_reader = MagicMock()
     mock_schema = MagicMock()
     mock_schema.name = "sensor_msgs/msg/CompressedImage"
     mock_channel = MagicMock()
     mock_channel.topic = "/camera/image/compressed"
+    mock_channel.schema_id = 1
 
-    mock_reader.iter_decoded_messages.return_value = [
-        (mock_schema, mock_channel, None, None)
-    ]
+    mock_summary = MagicMock()
+    mock_summary.schemas = {1: mock_schema}
+    mock_summary.channels = {1: mock_channel}
+
+    mock_reader = MagicMock()
+    mock_reader.get_summary.return_value = mock_summary
 
     with patch('mcap_to_mp4.cli.make_reader', return_value=mock_reader):
         with patch('builtins.open', mock_open()):
