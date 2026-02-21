@@ -42,11 +42,12 @@ jobs:
       - name: Run pytest (verbose + JUnit with logs)
         run: |
           uv run pytest tests \
-            -vv -rA --showlocals \
+            -vv -ra \
+            --tb=short \
+            --showlocals \
             --junit-xml pytest.xml \
             -o junit_family=xunit2 \
-            -o junit_logging=all \
-            -o junit_log_passing_tests=true
+            -o junit_logging=all
 
       - name: Publish Test Results
         if: always()
