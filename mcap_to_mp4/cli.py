@@ -4,19 +4,18 @@
 # MIT License
 
 import argparse
+import io
 import os
 import sys
+from statistics import mean
 from typing import List
-
-import io
 
 import imageio
 import mcap
+import numpy as np
 from mcap.reader import make_reader
 from mcap_ros2.decoder import DecoderFactory
-import numpy as np
 from PIL import Image
-from statistics import mean
 
 IMAGE_SCHEMAS = {"sensor_msgs/msg/Image", "sensor_msgs/msg/CompressedImage"}
 
