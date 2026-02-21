@@ -41,6 +41,11 @@ The codebase is a single-module CLI tool in `mcap_to_mp4/cli.py`:
 
 Entry point: `mcap-to-mp4` → `mcap_to_mp4.cli:main`
 
+## Git / Pull Request Workflow
+
+- Do NOT use `git rebase` on PR branches. PR review comments are tied to commits, and rebasing makes them hard to find.
+- PRs are squash-merged, so there is no need to keep commit history clean. Prefer additional commits over rewriting history.
+
 ## Code Style
 
 - Max line length: 99 (configured in `.flake8`)
