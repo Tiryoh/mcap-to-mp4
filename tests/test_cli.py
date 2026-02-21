@@ -2,8 +2,8 @@ import io
 from unittest.mock import MagicMock, mock_open, patch
 
 import numpy as np
-from PIL import Image
 import pytest
+from PIL import Image
 
 from mcap_to_mp4.cli import (check_file_exists, convert_to_mp4,
                              get_image_topic_list, parse_arguments)

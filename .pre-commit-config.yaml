@@ -1,0 +1,27 @@
+repos:
+  - repo: https://github.com/PyCQA/flake8
+    rev: 7.1.2
+    hooks:
+      - id: flake8
+        additional_dependencies:
+          - flake8-isort
+          - flake8-unused-arguments
+        stages: [pre-push]
+
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.14.1
+    hooks:
+      - id: mypy
+        additional_dependencies: []
+        args: ["--config-file", ".mypy.ini"]
+        stages: [pre-push]
+
+  - repo: local
+    hooks:
+      - id: pytest
+        name: pytest
+        entry: uv run pytest tests
+        language: system
+        pass_filenames: false
+        types: [python]
+        stages: [pre-push]
