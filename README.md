@@ -136,6 +136,13 @@ docker run --rm -it -v "${PWD}:/works" tiryoh/mcap-to-mp4 ./rosbag2_2024_02_18-2
 ```
 
 
+## Notes
+
+* Memory check: During conversion, the tool estimates memory usage and displays it.
+  * **Linux** (including **WSL**): Estimated memory usage is displayed. If available system memory is low, a warning is shown and you will be prompted to continue or abort.
+  * **macOS**: Estimated memory usage is displayed. Available memory check is not supported.
+  * **Windows** (non-WSL): Memory check is not supported.
+
 ## License
 
 Copyright 2024-2026 Daisuke Sato
