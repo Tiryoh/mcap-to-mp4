@@ -96,21 +96,23 @@ def _sanitize_path(file_path: str) -> str:
 
 
 def convert_to_mp4(input_file, topic, output_file) -> None:
+    input_file = _sanitize_path(input_file)
     output_file = _sanitize_path(output_file)
     # --- Pass 1: scan timestamps and count frames (no decoding) ---
     timestamps = []
     spinner = Spinner("Scanning frames")
     spinner.start()
 
-    with open(input_file, "rb") as f:
-        reader = make_reader(f)
-        for schema, channel, message in reader.iter_messages():
-            if schema is not None \
-                    and schema.name in IMAGE_SCHEMAS and channel.topic == topic:
-                timestamps.append(message.log_time)
-                spinner.count = len(timestamps)
-
-    spinner.stop()
+    try:
+        with open(input_file, "rb") as f:
+            reader = make_reader(f)
+            for schema, channel, message in reader.iter_messages():
+                if schema is not None \
+                        and schema.name in IMAGE_SCHEMAS and channel.topic == topic:
+                    timestamps.append(message.log_time)
+                    spinner.count = len(timestamps)
+    finally:
+        spinner.stop()
 
     total_frames = len(timestamps)
     print(f"Total {total_frames} frames")
@@ -145,8 +147,8 @@ def convert_to_mp4(input_file, topic, output_file) -> None:
     memory_warning_shown = False
     current_memory_mb = None
 
-    def _get_memory_mb():
-        """Get current peak RSS in MB (self + children)."""
+    def _get_peak_memory_mb():
+        """Get peak RSS in MB (self + children)."""
         try:
             import resource
             rss_self = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
@@ -160,55 +162,61 @@ def convert_to_mp4(input_file, topic, output_file) -> None:
         except (ValueError, OSError, ImportError):
             return None
 
-    with open(input_file, "rb") as f:
-        reader = make_reader(f, decoder_factories=[DecoderFactory()])
-        for schema, channel, message, ros_msg in reader.iter_decoded_messages():
-            if schema is not None \
-                    and schema.name in IMAGE_SCHEMAS and channel.topic == topic:
-                if schema.name == "sensor_msgs/msg/CompressedImage":
-                    img = Image.open(io.BytesIO(ros_msg.data)).convert("RGB")
-                    img_channel = len(img.getbands())
-                    used_encoding = getattr(ros_msg, "format", used_encoding)
-                else:
-                    img_channel = int(len(ros_msg.data) / (ros_msg.height * ros_msg.width))
-                    img_array = np.frombuffer(ros_msg.data, dtype=np.uint8).reshape(
-                        (ros_msg.height, ros_msg.width, img_channel))
+    try:
+        with open(input_file, "rb") as f:
+            reader = make_reader(f, decoder_factories=[DecoderFactory()])
+            for schema, channel, message, ros_msg in reader.iter_decoded_messages():
+                if schema is not None \
+                        and schema.name in IMAGE_SCHEMAS and channel.topic == topic:
+                    if schema.name == "sensor_msgs/msg/CompressedImage":
+                        img = Image.open(io.BytesIO(ros_msg.data)).convert("RGB")
+                        img_channel = len(img.getbands())
+                        used_encoding = getattr(ros_msg, "format", used_encoding)
+                    else:
+                        img_channel = int(
+                            len(ros_msg.data) / (ros_msg.height * ros_msg.width))
+                        img_array = np.frombuffer(ros_msg.data, dtype=np.uint8).reshape(
+                            (ros_msg.height, ros_msg.width, img_channel))
 
-                    # Convert BGR (bgr8) to RGB
-                    encoding = getattr(ros_msg, "encoding", "").lower()
-                    used_encoding = encoding or used_encoding
-                    if encoding == "bgr8" and img_channel == 3:
-                        img_array = img_array[:, :, ::-1]  # BGR -> RGB
+                        # Convert BGR (bgr8) to RGB
+                        encoding = getattr(ros_msg, "encoding", "").lower()
+                        used_encoding = encoding or used_encoding
+                        if encoding == "bgr8" and img_channel == 3:
+                            img_array = img_array[:, :, ::-1]  # BGR -> RGB
 
-                    img = Image.fromarray(img_array)
+                        img = Image.fromarray(img_array)
 
-                video_writer.append_data(np.array(img))
-                frame_idx += 1
+                    video_writer.append_data(np.array(img))
+                    frame_idx += 1
 
-                # Periodic memory measurement every MEMORY_CHECK_INTERVAL frames
-                if frame_idx % MEMORY_CHECK_INTERVAL == 0:
-                    current_memory_mb = _get_memory_mb()
-                    # Check available memory (Linux / WSL only;
-                    # SC_AVPHYS_PAGES is not available on macOS)
-                    if current_memory_mb is not None and not memory_warning_shown:
-                        try:
-                            avail = os.sysconf('SC_PAGE_SIZE') * os.sysconf('SC_AVPHYS_PAGES')
-                            avail_mb = avail / (1024 * 1024)
-                            if avail_mb < current_memory_mb:
-                                memory_warning_shown = True
-                                print(f"\nWARNING: Memory usage (~{current_memory_mb:.0f} MB) "
-                                      f"exceeds available memory ({avail_mb:.0f} MB)!")
-                                answer = input("Continue anyway? [y/N]: ").strip().lower()
-                                if answer != 'y':
-                                    video_writer.close()
-                                    print("Aborted.")
-                                    sys.exit(1)
-                        except (ValueError, OSError):
-                            pass
+                    # Periodic memory measurement every MEMORY_CHECK_INTERVAL frames
+                    if frame_idx % MEMORY_CHECK_INTERVAL == 0:
+                        current_memory_mb = _get_peak_memory_mb()
+                        # Check available memory (Linux / WSL only;
+                        # SC_AVPHYS_PAGES is not available on macOS)
+                        if current_memory_mb is not None and not memory_warning_shown:
+                            try:
+                                avail = (os.sysconf('SC_PAGE_SIZE')
+                                         * os.sysconf('SC_AVPHYS_PAGES'))
+                                avail_mb = avail / (1024 * 1024)
+                                if avail_mb < current_memory_mb:
+                                    memory_warning_shown = True
+                                    print(
+                                        f"\nWARNING: Memory usage "
+                                        f"(~{current_memory_mb:.0f} MB) "
+                                        f"exceeds available memory "
+                                        f"({avail_mb:.0f} MB)!")
+                                    answer = input(
+                                        "Continue anyway? [y/N]: ").strip().lower()
+                                    if answer != 'y':
+                                        print("Aborted.")
+                                        sys.exit(1)
+                            except (ValueError, OSError):
+                                pass
 
-                print_progress_bar(frame_idx, total_frames, current_memory_mb)
-
-    video_writer.close()
+                    print_progress_bar(frame_idx, total_frames, current_memory_mb)
+    finally:
+        video_writer.close()
     print()
     if img_channel == 3:
         if used_encoding == "bgr8":
