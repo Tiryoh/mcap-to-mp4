@@ -7,7 +7,6 @@ import argparse
 import io
 import itertools
 import os
-import resource
 import sys
 import threading
 import time
@@ -88,7 +87,16 @@ def get_image_topic_list(mcap_file_path: str) -> List[str]:
     return list(set(topic_list))
 
 
+def _sanitize_path(file_path: str) -> str:
+    """Validate that a file path does not contain shell-dangerous characters."""
+    dangerous_chars = set(";|&`$(){}[]!#~")
+    if any(c in dangerous_chars for c in file_path):
+        raise ValueError(f"Invalid characters in file path: {file_path}")
+    return file_path
+
+
 def convert_to_mp4(input_file, topic, output_file) -> None:
+    output_file = _sanitize_path(output_file)
     # --- Pass 1: scan timestamps and count frames (no decoding) ---
     timestamps = []
     spinner = Spinner("Scanning frames")
@@ -111,7 +119,7 @@ def convert_to_mp4(input_file, topic, output_file) -> None:
         sys.exit(1)
 
     diff_timestamp = [timestamps[i+1] - timestamps[i] for i in range(len(timestamps) - 1)]
-    video_fps = 1 / mean(diff_timestamp[1:]) * 10**9
+    video_fps = 1 / mean(diff_timestamp) * 10**9
 
     # --- Pass 2: decode and write frames one by one ---
     print("Converting frames...")
@@ -140,6 +148,7 @@ def convert_to_mp4(input_file, topic, output_file) -> None:
     def _get_memory_mb():
         """Get current peak RSS in MB (self + children)."""
         try:
+            import resource
             rss_self = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
             rss_children = resource.getrusage(resource.RUSAGE_CHILDREN).ru_maxrss
             rss = rss_self + rss_children
@@ -148,7 +157,7 @@ def convert_to_mp4(input_file, topic, output_file) -> None:
                 return rss / (1024 * 1024)
             else:
                 return rss / 1024
-        except (ValueError, OSError):
+        except (ValueError, OSError, ImportError):
             return None
 
     with open(input_file, "rb") as f:
