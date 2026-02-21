@@ -2,6 +2,8 @@
 
 A tool to convert ROS 2 topics recorded with rosbag2 recordings in [mcap](https://mcap.dev/) format into MP4 files
 
+[![asciicast](https://asciinema.org/a/MMJkhKZkq5DIYEy4.svg)](https://asciinema.org/a/MMJkhKZkq5DIYEy4)
+
 **English**  
 This tool provides a simple way to convert ROS 2 topics stored in **rosbag2** recordings using the **MCAP** format into standard MP4 video files.  
 It is especially useful for visualizing and sharing regularly published topics such as camera streams or sensor data.  
