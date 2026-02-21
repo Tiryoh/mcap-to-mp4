@@ -81,7 +81,7 @@ def setup_two_pass_reader(messages):
     First call (pass 1): returns a reader with iter_messages() yielding 3-tuples.
     Second call (pass 2): returns a reader with iter_decoded_messages() yielding 4-tuples.
     """
-    def factory(*args, **kwargs):
+    def factory(*args, **kwargs):  # noqa: U100 - matches make_reader() signature
         mock_reader = MagicMock()
         if 'decoder_factories' not in kwargs:
             # Pass 1: iter_messages returns (schema, channel, message) 3-tuples
