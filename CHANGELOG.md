@@ -2,6 +2,14 @@
 ## [Unreleased]
 
 
+<a name="v0.4.1"></a>
+## [v0.4.1] - 2026-02-21
+### Chore
+- Add uv lock step to bump-version workflow ([#52](https://github.com/Tiryoh/mcap-to-mp4/issues/52))
+
+[Unreleased]: https://github.com/Tiryoh/mcap-to-mp4/compare/v0.4.1...HEAD
+[v0.4.1]: https://github.com/Tiryoh/mcap-to-mp4/compare/v0.4.0...v0.4.1
+
 <a name="v0.4.0"></a>
 ## [v0.4.0] - 2026-02-21
 ### Chore
@@ -22,7 +30,6 @@
 - Restrict bump-version workflow to repository owner ([#48](https://github.com/Tiryoh/mcap-to-mp4/issues/48))
 
 
-[Unreleased]: https://github.com/Tiryoh/mcap-to-mp4/compare/v0.4.0...HEAD
 [v0.4.0]: https://github.com/Tiryoh/mcap-to-mp4/compare/v0.3.0...v0.4.0
 
 
