@@ -91,7 +91,6 @@ def get_image_topic_list(mcap_file_path: str) -> List[str]:
 def convert_to_mp4(input_file, topic, output_file) -> None:
     # --- Pass 1: scan timestamps and count frames (no decoding) ---
     timestamps = []
-    schema_name = None
     spinner = Spinner("Scanning frames")
     spinner.start()
 
@@ -101,7 +100,6 @@ def convert_to_mp4(input_file, topic, output_file) -> None:
             if schema is not None \
                     and schema.name in IMAGE_SCHEMAS and channel.topic == topic:
                 timestamps.append(message.log_time)
-                schema_name = schema.name
                 spinner.count = len(timestamps)
 
     spinner.stop()
