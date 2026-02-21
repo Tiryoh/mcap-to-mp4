@@ -153,18 +153,14 @@ def create_test_mcap_compressed(path, topic="/camera/image/compressed",
 
 def read_mp4_frames(path):
     """Read all frames from an MP4 file. Returns list of numpy arrays."""
-    reader = imageio.get_reader(str(path))
-    frames = [reader.get_data(i) for i in range(reader.count_frames())]
-    reader.close()
-    return frames
+    with imageio.get_reader(str(path)) as reader:
+        return [reader.get_data(i) for i in range(reader.count_frames())]
 
 
 def read_mp4_fps(path):
     """Read the FPS metadata from an MP4 file."""
-    reader = imageio.get_reader(str(path))
-    fps = reader.get_meta_data()["fps"]
-    reader.close()
-    return fps
+    with imageio.get_reader(str(path)) as reader:
+        return reader.get_meta_data()["fps"]
 
 
 def assert_frame_color(frame, expected_rgb, tolerance=COLOR_TOLERANCE):
