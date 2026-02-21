@@ -24,6 +24,8 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: '0'
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v5
       - name: Create release branch
         id: create-release
         run: |
@@ -34,6 +36,7 @@ jobs:
           export BRANCH=release/v$VERSION
           bash .github/scripts/update_changelog.sh $VERSION
           bash .github/scripts/update_version.sh $VERSION
+          uv lock
           git switch -c $BRANCH
           git add .
           git commit -m "release: Release v$VERSION"
