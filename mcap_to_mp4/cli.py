@@ -21,6 +21,9 @@ from mcap_ros2.decoder import DecoderFactory
 from PIL import Image
 
 IMAGE_SCHEMAS = {"sensor_msgs/msg/Image", "sensor_msgs/msg/CompressedImage"}
+MEMORY_CHECK_INTERVAL = 100
+KB_PER_MB = 1024
+BYTES_PER_MB = 1024 * 1024
 
 
 class Spinner:
@@ -30,7 +33,18 @@ class Spinner:
         self._message = message
         self._stop_event = threading.Event()
         self._thread = None
-        self.count = 0
+        self._lock = threading.Lock()
+        self._count = 0
+
+    @property
+    def count(self):
+        with self._lock:
+            return self._count
+
+    @count.setter
+    def count(self, value):
+        with self._lock:
+            self._count = value
 
     def _spin(self):
         for char in itertools.cycle("⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"):
@@ -51,6 +65,8 @@ class Spinner:
 
 
 def print_progress_bar(current, total, memory_mb=None, bar_length=40):
+    if total == 0:
+        return
     fraction = current / total
     filled = int(bar_length * fraction)
     bar = "█" * filled + "░" * (bar_length - filled)
@@ -107,8 +123,8 @@ def convert_to_mp4(input_file, topic, output_file) -> None:
         with open(input_file, "rb") as f:
             reader = make_reader(f)
             for schema, channel, message in reader.iter_messages():
-                if schema is not None \
-                        and schema.name in IMAGE_SCHEMAS and channel.topic == topic:
+                if (schema is not None
+                        and schema.name in IMAGE_SCHEMAS and channel.topic == topic):
                     timestamps.append(message.log_time)
                     spinner.count = len(timestamps)
     finally:
@@ -121,7 +137,11 @@ def convert_to_mp4(input_file, topic, output_file) -> None:
         sys.exit(1)
 
     diff_timestamp = [timestamps[i+1] - timestamps[i] for i in range(len(timestamps) - 1)]
-    video_fps = 1 / mean(diff_timestamp) * 10**9
+    mean_interval = mean(diff_timestamp)
+    if mean_interval == 0:
+        print("Error: all timestamps are identical, cannot calculate FPS")
+        sys.exit(1)
+    video_fps = 1 / mean_interval * 10**9
 
     # --- Pass 2: decode and write frames one by one ---
     print("Converting frames...")
@@ -143,7 +163,6 @@ def convert_to_mp4(input_file, topic, output_file) -> None:
     #     - RUSAGE_CHILDREN: child processes (ffmpeg spawned by imageio)
     #   Both are summed because gtime/time -v reports the combined peak,
     #   and ffmpeg can use significant memory for video encoding.
-    MEMORY_CHECK_INTERVAL = 100
     memory_warning_shown = False
     current_memory_mb = None
 
@@ -156,9 +175,9 @@ def convert_to_mp4(input_file, topic, output_file) -> None:
             rss = rss_self + rss_children
             # ru_maxrss is in bytes on macOS, kilobytes on Linux
             if sys.platform == 'darwin':
-                return rss / (1024 * 1024)
+                return rss / BYTES_PER_MB
             else:
-                return rss / 1024
+                return rss / KB_PER_MB
         except (ValueError, OSError, ImportError):
             return None
 
@@ -166,8 +185,8 @@ def convert_to_mp4(input_file, topic, output_file) -> None:
         with open(input_file, "rb") as f:
             reader = make_reader(f, decoder_factories=[DecoderFactory()])
             for schema, channel, message, ros_msg in reader.iter_decoded_messages():
-                if schema is not None \
-                        and schema.name in IMAGE_SCHEMAS and channel.topic == topic:
+                if (schema is not None
+                        and schema.name in IMAGE_SCHEMAS and channel.topic == topic):
                     if schema.name == "sensor_msgs/msg/CompressedImage":
                         img = Image.open(io.BytesIO(ros_msg.data)).convert("RGB")
                         img_channel = len(img.getbands())
@@ -198,7 +217,7 @@ def convert_to_mp4(input_file, topic, output_file) -> None:
                             try:
                                 avail = (os.sysconf('SC_PAGE_SIZE')
                                          * os.sysconf('SC_AVPHYS_PAGES'))
-                                avail_mb = avail / (1024 * 1024)
+                                avail_mb = avail / BYTES_PER_MB
                                 if avail_mb < current_memory_mb:
                                     memory_warning_shown = True
                                     print(
