@@ -10,7 +10,7 @@ permissions:
 jobs:
   bump-version:
     runs-on: ubuntu-latest
-    if: startsWith(github.event.issue.title, 'Release ')
+    if: startsWith(github.event.issue.title, 'Release ') && github.event.issue.user.login == github.repository_owner
     steps:
       - name: Install git-chglog
         run: |
