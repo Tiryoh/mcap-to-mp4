@@ -167,6 +167,31 @@ def test_convert_to_mp4_compressed_image():
         assert mock_writer.append_data.call_count == 3
 
 
+def test_convert_to_mp4_identical_timestamps():
+    mock_schema = MagicMock()
+    mock_schema.name = "sensor_msgs/msg/Image"
+
+    same_time = 1000000
+    messages = [
+        (
+            mock_schema,
+            MagicMock(topic="/camera/image"),
+            MagicMock(log_time=same_time),
+            create_mock_ros_msg()
+        )
+        for _ in range(3)
+    ]
+
+    mock_writer = MagicMock()
+
+    with patch('mcap_to_mp4.cli.make_reader', side_effect=setup_two_pass_reader(messages)), \
+            patch('mcap_to_mp4.cli.imageio.get_writer', return_value=mock_writer), \
+            patch('builtins.open', mock_open()):
+
+        with pytest.raises(SystemExit, match="1"):
+            convert_to_mp4("dummy.mcap", "/camera/image", "output.mp4")
+
+
 def test_convert_to_mp4_fps():
     # MagicMock(name=)とするとMagicMockオブジェクト自体の識別用の名前を設定してしまう
     mock_schema = MagicMock()

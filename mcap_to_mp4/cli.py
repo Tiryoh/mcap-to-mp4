@@ -22,7 +22,7 @@ from PIL import Image
 
 IMAGE_SCHEMAS = {"sensor_msgs/msg/Image", "sensor_msgs/msg/CompressedImage"}
 MEMORY_CHECK_INTERVAL = 100
-BYTES_PER_KB = 1024
+KB_PER_MB = 1024
 BYTES_PER_MB = 1024 * 1024
 
 
@@ -177,7 +177,7 @@ def convert_to_mp4(input_file, topic, output_file) -> None:
             if sys.platform == 'darwin':
                 return rss / BYTES_PER_MB
             else:
-                return rss / BYTES_PER_KB
+                return rss / KB_PER_MB
         except (ValueError, OSError, ImportError):
             return None
 
