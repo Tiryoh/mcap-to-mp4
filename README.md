@@ -4,16 +4,18 @@ A tool for converting ROS 2 image topics recorded in rosbag2 [MCAP](https://mcap
 
 [![asciicast](https://asciinema.org/a/MMJkhKZkq5DIYEy4.svg)](https://asciinema.org/a/MMJkhKZkq5DIYEy4)
 
-**English**  
-This tool provides a simple way to convert ROS 2 image topics recorded in **rosbag2** **MCAP** files into standard MP4 video files.  
-It is especially useful for visualizing and sharing regularly published image streams, such as camera feeds.  
-The tool assumes that input messages are recorded at a roughly fixed rate, and generates an MP4 using the *average frame interval* of the input messages.  
-As a result, the generated videos are well suited for experiment reviews, demos, and presentations.  
+**English**
+This tool provides a simple way to convert ROS 2 image topics recorded in **rosbag2** **MCAP** files into standard MP4 video files.
+It is especially useful for visualizing and sharing regularly published image streams, such as camera feeds.
+By default, the tool assumes that input messages are recorded at a roughly fixed rate, and generates an MP4 using the *average frame interval* of the input messages (CFR: Constant Frame Rate).
+When needed, `--timestamp-timing` enables `sensor_msgs/Image.header.stamp`-based timing (VFR: Variable Frame Rate).
+As a result, the generated videos are well suited for experiment reviews, demos, and presentations.
 
-**日本語**  
-このツールは、rosbag2 の **MCAP** ファイルに記録された ROS 2 の画像トピックを、標準的な MP4 動画ファイルに変換します。  
-カメラ映像のように、一定周期で発行される画像ストリームの可視化や共有に特に便利です。  
-入力メッセージがおおむね一定周期で記録されていることを前提とし、生成される MP4 は入力メッセージ間の平均フレーム間隔を用いて出力します。  
+**日本語**
+このツールは、rosbag2 の **MCAP** ファイルに記録された ROS 2 の画像トピックを、標準的な MP4 動画ファイルに変換します。
+カメラ映像のように、一定周期で発行される画像ストリームの可視化や共有に特に便利です。
+デフォルトでは入力メッセージがおおむね一定周期で記録されていることを前提とし、生成される MP4 は入力メッセージ間の平均フレーム間隔（CFR: Constant Frame Rate / 固定フレームレート）を用いて出力します。
+`--timestamp-timing` を指定すると `sensor_msgs/Image.header.stamp` を使った可変フレームレート（VFR: Variable Frame Rate / 可変フレームレート）で出力します。
 そのため、実験の振り返りやデモ、プレゼンテーションに適しています。  
 
 ## Requirements
@@ -49,7 +51,6 @@ uv tool install mcap-to-mp4
 mcap-to-mp4 $path_to_the_mcap_file -t $topic_name -o $outputfilename
 ```
 
-
 ### Docker
 
 ```sh
@@ -59,6 +60,7 @@ docker build -t tiryoh/mcap-to-mp4 .
 # Run
 docker run --rm -it -v "${PWD}:/works" tiryoh/mcap-to-mp4 $path_to_the_mcap_file -t $topic_name -o $outputfilename
 ```
+
 ## Usage
 
 ### pip
@@ -113,6 +115,9 @@ mcap-to-mp4 ./rosbag2_2024_02_18-23_35_48/rosbag2_2024_02_18-23_35_48_0.mcap -t 
 
 # With uv sync (source install):
 uv run mcap-to-mp4 ./rosbag2_2024_02_18-23_35_48/rosbag2_2024_02_18-23_35_48_0.mcap -t /camera/color/image_raw -o output.mp4
+
+# Optional: use header.stamp based VFR timing
+mcap-to-mp4 ./rosbag2_2024_02_18-23_35_48/rosbag2_2024_02_18-23_35_48_0.mcap -t /camera/color/image_raw -o output_vfr.mp4 --timestamp-timing
 ```
 
 ### Docker
@@ -135,8 +140,10 @@ Run
 
 ```sh
 docker run --rm -it -v "${PWD}:/works" tiryoh/mcap-to-mp4 ./rosbag2_2024_02_18-23_35_48/rosbag2_2024_02_18-23_35_48_0.mcap -t /camera/color/image_raw -o output.mp4
-```
 
+# Optional: use header.stamp based VFR timing
+docker run --rm -it -v "${PWD}:/works" tiryoh/mcap-to-mp4 ./rosbag2_2024_02_18-23_35_48/rosbag2_2024_02_18-23_35_48_0.mcap -t /camera/color/image_raw -o output_vfr.mp4 --timestamp-timing
+```
 
 ## Notes
 
