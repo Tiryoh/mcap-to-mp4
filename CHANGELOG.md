@@ -2,6 +2,37 @@
 ## [Unreleased]
 
 
+<a name="v0.4.1"></a>
+## [v0.4.1] - 2026-02-21
+### Chore
+- Add uv lock step to bump-version workflow ([#52](https://github.com/Tiryoh/mcap-to-mp4/issues/52))
+
+[Unreleased]: https://github.com/Tiryoh/mcap-to-mp4/compare/v0.4.1...HEAD
+[v0.4.1]: https://github.com/Tiryoh/mcap-to-mp4/compare/v0.4.0...v0.4.1
+
+<a name="v0.4.0"></a>
+## [v0.4.0] - 2026-02-21
+### Chore
+- Add pre-push hooks with prek ([#46](https://github.com/Tiryoh/mcap-to-mp4/issues/46))
+- Migrate project from poetry to uv ([#41](https://github.com/Tiryoh/mcap-to-mp4/issues/41))
+- Update copyright year range to 2024-2026 ([#40](https://github.com/Tiryoh/mcap-to-mp4/issues/40))
+
+### Documentation
+- Add git/PR workflow guidelines to CLAUDE.md ([#47](https://github.com/Tiryoh/mcap-to-mp4/issues/47))
+- Update README ([#44](https://github.com/Tiryoh/mcap-to-mp4/issues/44))
+
+### Features
+- Two-pass conversion with progress indicators and memory monitoring ([#45](https://github.com/Tiryoh/mcap-to-mp4/issues/45))
+- Add CompressedImage support ([#43](https://github.com/Tiryoh/mcap-to-mp4/issues/43))
+
+### Fix
+- Add zero-division guards and thread safety to conversion pipeline ([#49](https://github.com/Tiryoh/mcap-to-mp4/issues/49))
+- Restrict bump-version workflow to repository owner ([#48](https://github.com/Tiryoh/mcap-to-mp4/issues/48))
+
+
+[v0.4.0]: https://github.com/Tiryoh/mcap-to-mp4/compare/v0.3.0...v0.4.0
+
+
 <a name="v0.3.0"></a>
 ## [v0.3.0] - 2025-08-19
 ### Chore
@@ -25,7 +56,6 @@
 - Always install poetry to use case ([#10](https://github.com/Tiryoh/mcap-to-mp4/issues/10))
 
 
-[Unreleased]: https://github.com/Tiryoh/mcap-to-mp4/compare/v0.3.0...HEAD
 [v0.3.0]: https://github.com/Tiryoh/mcap-to-mp4/compare/v0.2.0...v0.3.0
 
 

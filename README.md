@@ -1,19 +1,21 @@
 # mcap-to-mp4
 
-A tool to convert ROS 2 topics recorded with rosbag2 recordings in [mcap](https://mcap.dev/) format into MP4 files
+A tool for converting ROS 2 image topics recorded in rosbag2 [MCAP](https://mcap.dev/) files into MP4 videos
 
-**English**  
-This tool provides a simple way to convert ROS 2 topics stored in **rosbag2** recordings using the **MCAP** format into standard MP4 video files.  
-It is especially useful for visualizing and sharing regularly published topics such as camera streams or sensor data.  
-By default, the tool assumes fixed-rate topics and uses the *average frame interval* (CFR: Constant Frame Rate) of input messages.  
-When needed, `--timestamp-timing` enables `sensor_msgs/Image.header.stamp`-based timing (VFR: Variable Frame Rate).  
-This makes the resulting video well-suited for experiment reviews, demos, or presentations.  
+[![asciicast](https://asciinema.org/a/MMJkhKZkq5DIYEy4.svg)](https://asciinema.org/a/MMJkhKZkq5DIYEy4)
 
-**日本語**  
-このツールは、**rosbag2** で **MCAP** 形式として記録された ROS 2 トピックを、標準的な MP4 動画ファイルに変換します。  
-カメラストリームやセンサーデータなど、一定周期で発行されるトピックを可視化・共有するのに特に便利です。  
-デフォルトではトピックが一定周期でサブスクライブできることを前提とし、生成される MP4 は各フレーム間隔の平均値（CFR: Constant Frame Rate / 固定フレームレート）を採用して出力します。  
-`--timestamp-timing` を指定すると `sensor_msgs/Image.header.stamp` を使った可変フレームレート（VFR: Variable Frame Rate / 可変フレームレート）で出力します。  
+**English**
+This tool provides a simple way to convert ROS 2 image topics recorded in **rosbag2** **MCAP** files into standard MP4 video files.
+It is especially useful for visualizing and sharing regularly published image streams, such as camera feeds.
+By default, the tool assumes that input messages are recorded at a roughly fixed rate, and generates an MP4 using the *average frame interval* of the input messages (CFR: Constant Frame Rate).
+When needed, `--timestamp-timing` enables `sensor_msgs/Image.header.stamp`-based timing (VFR: Variable Frame Rate).
+As a result, the generated videos are well suited for experiment reviews, demos, and presentations.
+
+**日本語**
+このツールは、rosbag2 の **MCAP** ファイルに記録された ROS 2 の画像トピックを、標準的な MP4 動画ファイルに変換します。
+カメラ映像のように、一定周期で発行される画像ストリームの可視化や共有に特に便利です。
+デフォルトでは入力メッセージがおおむね一定周期で記録されていることを前提とし、生成される MP4 は入力メッセージ間の平均フレーム間隔（CFR: Constant Frame Rate / 固定フレームレート）を用いて出力します。
+`--timestamp-timing` を指定すると `sensor_msgs/Image.header.stamp` を使った可変フレームレート（VFR: Variable Frame Rate / 可変フレームレート）で出力します。
 そのため、実験の振り返りやデモ、プレゼンテーションに適しています。  
 
 ## Requirements
@@ -76,6 +78,7 @@ Install the package from source (optional)
 git clone https://github.com/Tiryoh/mcap-to-mp4.git
 cd mcap-to-mp4
 pip install -e .
+mcap-to-mp4 --help
 ```
 
 ### uv
@@ -93,6 +96,8 @@ Install the package from source (optional)
 git clone https://github.com/Tiryoh/mcap-to-mp4.git
 cd mcap-to-mp4
 uv sync --group dev
+# Run with uv run
+uv run mcap-to-mp4 --help
 ```
 
 Download sample mcap rosbag2 file
@@ -107,6 +112,9 @@ Run
 ```sh
 # With pip or uv tool install:
 mcap-to-mp4 ./rosbag2_2024_02_18-23_35_48/rosbag2_2024_02_18-23_35_48_0.mcap -t /camera/color/image_raw -o output.mp4
+
+# With uv sync (source install):
+uv run mcap-to-mp4 ./rosbag2_2024_02_18-23_35_48/rosbag2_2024_02_18-23_35_48_0.mcap -t /camera/color/image_raw -o output.mp4
 
 # Optional: use header.stamp based VFR timing
 mcap-to-mp4 ./rosbag2_2024_02_18-23_35_48/rosbag2_2024_02_18-23_35_48_0.mcap -t /camera/color/image_raw -o output_vfr.mp4 --timestamp-timing
@@ -136,6 +144,13 @@ docker run --rm -it -v "${PWD}:/works" tiryoh/mcap-to-mp4 ./rosbag2_2024_02_18-2
 # Optional: use header.stamp based VFR timing
 docker run --rm -it -v "${PWD}:/works" tiryoh/mcap-to-mp4 ./rosbag2_2024_02_18-23_35_48/rosbag2_2024_02_18-23_35_48_0.mcap -t /camera/color/image_raw -o output_vfr.mp4 --timestamp-timing
 ```
+
+## Notes
+
+* Memory check: During conversion, the tool estimates memory usage and displays it.
+  * **Linux** (including **WSL**): Estimated memory usage is displayed. If available system memory is low, a warning is shown and you will be prompted to continue or abort.
+  * **macOS**: Estimated memory usage is displayed. Available memory check is not supported.
+  * **Windows** (non-WSL): Memory check is not supported.
 
 ## License
 

@@ -1,22 +1,16 @@
+import io
 from types import SimpleNamespace
 from unittest.mock import MagicMock, mock_open, patch
 
 import numpy as np
 import pytest
+from PIL import Image
 
-from mcap_to_mp4.cli import (
-    DEFAULT_FALLBACK_FPS,
-    MAX_GAP_MULTIPLIER,
-    NANOSECONDS_PER_SECOND,
-    build_vfr_durations_ns,
-    check_file_exists,
-    convert_to_mp4,
-    encode_vfr,
-    get_header_stamp_ns,
-    get_image_topic_list,
-    parse_arguments,
-    read_frames_and_timestamps,
-)
+from mcap_to_mp4.cli import (DEFAULT_FALLBACK_FPS, MAX_GAP_MULTIPLIER,
+                             NANOSECONDS_PER_SECOND, build_vfr_durations_ns,
+                             check_file_exists, convert_to_mp4, encode_vfr,
+                             get_header_stamp_ns, get_image_topic_list,
+                             parse_arguments)
 
 
 def test_parse_arguments():
@@ -55,15 +49,18 @@ def test_get_header_stamp_ns():
 
 
 def test_get_image_topic_list():
-    mock_reader = MagicMock()
     mock_schema = MagicMock()
     mock_schema.name = "sensor_msgs/msg/Image"
     mock_channel = MagicMock()
     mock_channel.topic = "/camera/image"
+    mock_channel.schema_id = 1
 
-    mock_reader.iter_decoded_messages.return_value = [
-        (mock_schema, mock_channel, None, None)
-    ]
+    mock_summary = MagicMock()
+    mock_summary.schemas = {1: mock_schema}
+    mock_summary.channels = {1: mock_channel}
+
+    mock_reader = MagicMock()
+    mock_reader.get_summary.return_value = mock_summary
 
     with patch('mcap_to_mp4.cli.make_reader', return_value=mock_reader):
         with patch('builtins.open', mock_open()):
@@ -88,69 +85,40 @@ def create_mock_ros_msg(height=480, width=640, channels=3, encoding="rgb8",
     return mock_msg
 
 
-def test_read_frames_and_timestamps_use_header_stamp():
-    mock_reader = MagicMock()
-    mock_schema = MagicMock()
-    mock_schema.name = "sensor_msgs/msg/Image"
-    timestamps = [100, 200, 500]
-    messages = [
-        (
-            mock_schema,
-            MagicMock(topic="/camera/image"),
-            MagicMock(log_time=1_000_000_000 + i),
-            create_mock_ros_msg(
-                sec=t // NANOSECONDS_PER_SECOND,
-                nanosec=t % NANOSECONDS_PER_SECOND,
-            ),
-        )
-        for i, t in enumerate(timestamps)
-    ]
-    mock_reader.iter_decoded_messages.return_value = messages
-
-    with patch('mcap_to_mp4.cli.make_reader', return_value=mock_reader), \
-            patch('builtins.open', mock_open()):
-        frames, stamp_ns, _, _ = read_frames_and_timestamps("dummy.mcap", "/camera/image", True)
-
-    assert len(frames) == 3
-    assert stamp_ns == timestamps
+def create_mock_compressed_ros_msg(height=480, width=640):
+    """Create a mock CompressedImage message with JPEG data."""
+    mock_msg = MagicMock()
+    mock_msg.format = "jpeg"
+    img = Image.new("RGB", (width, height), color=(0, 0, 0))
+    buf = io.BytesIO()
+    img.save(buf, format="JPEG")
+    mock_msg.data = buf.getvalue()
+    return mock_msg
 
 
-def test_read_frames_and_timestamps_skip_invalid_frame():
-    mock_reader = MagicMock()
-    mock_schema = MagicMock()
-    mock_schema.name = "sensor_msgs/msg/Image"
-    messages = [
-        (
-            mock_schema,
-            MagicMock(topic="/camera/image"),
-            MagicMock(log_time=10),
-            create_mock_ros_msg(height=0, width=640),
-        ),
-        (
-            mock_schema,
-            MagicMock(topic="/camera/image"),
-            MagicMock(log_time=20),
-            create_mock_ros_msg(height=2, width=2, data_override=b"\x00" * 5),
-        ),
-        (
-            mock_schema,
-            MagicMock(topic="/camera/image"),
-            MagicMock(log_time=30),
-            create_mock_ros_msg(height=2, width=2, channels=3),
-        ),
-    ]
-    mock_reader.iter_decoded_messages.return_value = messages
+def setup_two_pass_reader(messages):
+    """Create a side_effect for make_reader that supports two-pass reading.
 
-    with patch('mcap_to_mp4.cli.make_reader', return_value=mock_reader), \
-            patch('builtins.open', mock_open()):
-        frames, stamp_ns, _, _ = read_frames_and_timestamps("dummy.mcap", "/camera/image", False)
-
-    assert len(frames) == 1
-    assert stamp_ns == [30]
+    First call (pass 1): returns a reader with iter_messages() yielding 3-tuples.
+    Second call (pass 2): returns a reader with iter_decoded_messages() yielding 4-tuples.
+    """
+    def factory(*args, **kwargs):  # noqa: U100 - matches make_reader() signature
+        mock_reader = MagicMock()
+        if 'decoder_factories' not in kwargs:
+            # Pass 1: iter_messages returns (schema, channel, message) 3-tuples
+            mock_reader.iter_messages.return_value = [
+                (schema, channel, message)
+                for schema, channel, message, ros_msg in messages
+            ]
+        else:
+            # Pass 2: iter_decoded_messages returns full 4-tuples
+            mock_reader.iter_decoded_messages.return_value = messages
+        return mock_reader
+    return factory
 
 
 def test_convert_to_mp4_frame_count():
-    mock_reader = MagicMock()
+    # MagicMock(name=)とするとMagicMockオブジェクト自体の識別用の名前を設定してしまう
     mock_schema = MagicMock()
     mock_schema.name = "sensor_msgs/msg/Image"
 
@@ -163,11 +131,10 @@ def test_convert_to_mp4_frame_count():
         )
         for t in range(3)
     ]
-    mock_reader.iter_decoded_messages.return_value = messages
 
     mock_writer = MagicMock()
 
-    with patch('mcap_to_mp4.cli.make_reader', return_value=mock_reader), \
+    with patch('mcap_to_mp4.cli.make_reader', side_effect=setup_two_pass_reader(messages)), \
             patch('mcap_to_mp4.cli.imageio.get_writer', return_value=mock_writer), \
             patch('builtins.open', mock_open()):
         convert_to_mp4("dummy.mcap", "/camera/image", "output.mp4")
@@ -175,8 +142,78 @@ def test_convert_to_mp4_frame_count():
     assert mock_writer.append_data.call_count == 3
 
 
-def test_convert_to_mp4_fps():
+def test_get_image_topic_list_compressed():
+    mock_schema = MagicMock()
+    mock_schema.name = "sensor_msgs/msg/CompressedImage"
+    mock_channel = MagicMock()
+    mock_channel.topic = "/camera/image/compressed"
+    mock_channel.schema_id = 1
+
+    mock_summary = MagicMock()
+    mock_summary.schemas = {1: mock_schema}
+    mock_summary.channels = {1: mock_channel}
+
     mock_reader = MagicMock()
+    mock_reader.get_summary.return_value = mock_summary
+
+    with patch('mcap_to_mp4.cli.make_reader', return_value=mock_reader):
+        with patch('builtins.open', mock_open()):
+            topics = get_image_topic_list('test.mcap')
+            assert topics == ['/camera/image/compressed']
+
+
+def test_convert_to_mp4_compressed_image():
+    mock_schema = MagicMock()
+    mock_schema.name = "sensor_msgs/msg/CompressedImage"
+
+    messages = [
+        (
+            mock_schema,
+            MagicMock(topic="/camera/image/compressed"),
+            MagicMock(log_time=1000000 + t),
+            create_mock_compressed_ros_msg()
+        )
+        for t in range(3)
+    ]
+
+    mock_writer = MagicMock()
+
+    with patch('mcap_to_mp4.cli.make_reader', side_effect=setup_two_pass_reader(messages)), \
+            patch('mcap_to_mp4.cli.imageio.get_writer', return_value=mock_writer), \
+            patch('builtins.open', mock_open()):
+
+        convert_to_mp4("dummy.mcap", "/camera/image/compressed", "output.mp4")
+
+        assert mock_writer.append_data.call_count == 3
+
+
+def test_convert_to_mp4_identical_timestamps():
+    mock_schema = MagicMock()
+    mock_schema.name = "sensor_msgs/msg/Image"
+
+    same_time = 1000000
+    messages = [
+        (
+            mock_schema,
+            MagicMock(topic="/camera/image"),
+            MagicMock(log_time=same_time),
+            create_mock_ros_msg()
+        )
+        for _ in range(3)
+    ]
+
+    mock_writer = MagicMock()
+
+    with patch('mcap_to_mp4.cli.make_reader', side_effect=setup_two_pass_reader(messages)), \
+            patch('mcap_to_mp4.cli.imageio.get_writer', return_value=mock_writer), \
+            patch('builtins.open', mock_open()):
+
+        with pytest.raises(SystemExit, match="1"):
+            convert_to_mp4("dummy.mcap", "/camera/image", "output.mp4")
+
+
+def test_convert_to_mp4_fps():
+    # MagicMock(name=)とするとMagicMockオブジェクト自体の識別用の名前を設定してしまう
     mock_schema = MagicMock()
     mock_schema.name = "sensor_msgs/msg/Image"
     base_time = NANOSECONDS_PER_SECOND
@@ -189,14 +226,14 @@ def test_convert_to_mp4_fps():
         )
         for t in range(3)
     ]
-    mock_reader.iter_decoded_messages.return_value = messages
 
     mock_writer_instance = MagicMock()
     mock_get_writer = MagicMock(return_value=mock_writer_instance)
 
-    with patch('mcap_to_mp4.cli.make_reader', return_value=mock_reader), \
-            patch('mcap_to_mp4.cli.imageio.get_writer', mock_get_writer), \
-            patch('builtins.open', mock_open()):
+    with patch('mcap_to_mp4.cli.make_reader', side_effect=setup_two_pass_reader(messages)), \
+         patch('mcap_to_mp4.cli.imageio.get_writer', mock_get_writer), \
+         patch('builtins.open', mock_open()):
+
         convert_to_mp4("dummy.mcap", "/camera/image", "output.mp4")
 
     expected_fps = 1.0
@@ -219,7 +256,6 @@ def test_build_vfr_durations_ns_uses_median_reference():
 
 
 def test_convert_to_mp4_timestamp_timing_calls_vfr():
-    mock_reader = MagicMock()
     mock_schema = MagicMock()
     mock_schema.name = "sensor_msgs/msg/Image"
     messages = [
@@ -234,27 +270,23 @@ def test_convert_to_mp4_timestamp_timing_calls_vfr():
         )
         for t in range(3)
     ]
-    mock_reader.iter_decoded_messages.return_value = messages
 
-    with patch('mcap_to_mp4.cli.make_reader', return_value=mock_reader), \
+    with patch('mcap_to_mp4.cli.make_reader', side_effect=setup_two_pass_reader(messages)), \
             patch('mcap_to_mp4.cli.encode_vfr') as mock_encode_vfr, \
-            patch('mcap_to_mp4.cli.encode_cfr') as mock_encode_cfr, \
+            patch('mcap_to_mp4.cli.tempfile.mkdtemp', return_value='/tmp/test'), \
+            patch('mcap_to_mp4.cli.shutil.rmtree'), \
             patch('builtins.open', mock_open()):
         convert_to_mp4("dummy.mcap", "/camera/image", "output.mp4", timestamp_timing=True)
 
     mock_encode_vfr.assert_called_once()
-    mock_encode_cfr.assert_not_called()
 
 
 def test_encode_vfr_calls_ffmpeg():
-    frames = [
-        np.zeros((2, 2, 3), dtype=np.uint8),
-        np.zeros((2, 2, 3), dtype=np.uint8),
-    ]
+    image_paths = ["/tmp/frame_000000.png", "/tmp/frame_000001.png"]
     durations = [100_000_000, 100_000_000]
 
     with patch('mcap_to_mp4.cli.subprocess.run') as mock_run:
-        encode_vfr("output.mp4", frames, durations)
+        encode_vfr("output.mp4", image_paths, durations)
 
     assert mock_run.call_count == 1
     ffmpeg_command = mock_run.call_args.args[0]
