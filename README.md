@@ -1,19 +1,19 @@
 # mcap-to-mp4
 
-A tool to convert ROS 2 topics recorded with rosbag2 recordings in [mcap](https://mcap.dev/) format into MP4 files
+A tool for converting ROS 2 image topics recorded in rosbag2 [MCAP](https://mcap.dev/) files into MP4 videos
 
 [![asciicast](https://asciinema.org/a/MMJkhKZkq5DIYEy4.svg)](https://asciinema.org/a/MMJkhKZkq5DIYEy4)
 
 **English**  
-This tool provides a simple way to convert ROS 2 topics stored in **rosbag2** recordings using the **MCAP** format into standard MP4 video files.  
-It is especially useful for visualizing and sharing regularly published topics such as camera streams or sensor data.  
-Since the tool assumes that topics are subscribed at a fixed rate, the generated MP4 uses the *average frame interval* of the input messages.  
-This makes the resulting video well-suited for experiment reviews, demos, or presentations.  
+This tool provides a simple way to convert ROS 2 image topics recorded in **rosbag2** **MCAP** files into standard MP4 video files.  
+It is especially useful for visualizing and sharing regularly published image streams, such as camera feeds.  
+The tool assumes that input messages are recorded at a roughly fixed rate, and generates an MP4 using the *average frame interval* of the input messages.  
+As a result, the generated videos are well suited for experiment reviews, demos, and presentations.  
 
 **日本語**  
-このツールは、**rosbag2** で **MCAP** 形式として記録された ROS 2 トピックを、標準的な MP4 動画ファイルに変換します。  
-カメラストリームやセンサーデータなど、一定周期で発行されるトピックを可視化・共有するのに特に便利です。  
-トピックが一定周期でサブスクライブできることを前提としており、生成される MP4 は各フレーム間隔の平均値を採用して出力します。  
+このツールは、rosbag2 の **MCAP** ファイルに記録された ROS 2 の画像トピックを、標準的な MP4 動画ファイルに変換します。  
+カメラ映像のように、一定周期で発行される画像ストリームの可視化や共有に特に便利です。  
+入力メッセージがおおむね一定周期で記録されていることを前提とし、生成される MP4 は入力メッセージ間の平均フレーム間隔を用いて出力します。  
 そのため、実験の振り返りやデモ、プレゼンテーションに適しています。  
 
 ## Requirements

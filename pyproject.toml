@@ -1,7 +1,7 @@
 [project]
 name = "mcap-to-mp4"
 version = "0.4.1"
-description = "A tool to convert ROS topics recorded with mcap to MP4 file"
+description = "A tool for converting ROS 2 image topics in rosbag2 MCAP files to MP4 videos"
 authors = [
     {name = "Daisuke Sato"},
 ]
