@@ -147,6 +147,7 @@ docker run --rm -it -v "${PWD}:/works" tiryoh/mcap-to-mp4 ./rosbag2_2024_02_18-2
 
 ## Notes
 
+* `--timestamp-timing` option: This option saves each frame as a PNG file to a temporary directory before encoding with ffmpeg, which takes significantly longer than the default CFR mode. For example, a 6868-frame rosbag took about 4 minutes in CFR mode vs. about 11 minutes in VFR mode (measured on M3 MacBook Air).
 * Memory check: During conversion, the tool estimates memory usage and displays it.
   * **Linux** (including **WSL**): Estimated memory usage is displayed. If available system memory is low, a warning is shown and you will be prompted to continue or abort.
   * **macOS**: Estimated memory usage is displayed. Available memory check is not supported.
