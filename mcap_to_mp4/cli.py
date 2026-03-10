@@ -20,7 +20,11 @@ from mcap.reader import make_reader
 from mcap_ros2.decoder import DecoderFactory
 from PIL import Image
 
-IMAGE_SCHEMAS = {"sensor_msgs/msg/Image", "sensor_msgs/msg/CompressedImage"}
+IMAGE_SCHEMAS = {
+    "sensor_msgs/msg/Image",
+    "sensor_msgs/msg/CompressedImage",
+    "foxglove_msgs/msg/CompressedVideo",
+}
 MEMORY_CHECK_INTERVAL = 100
 KB_PER_MB = 1024
 BYTES_PER_MB = 1024 * 1024
@@ -181,13 +185,53 @@ def convert_to_mp4(input_file, topic, output_file) -> None:
         except (ValueError, OSError, ImportError):
             return None
 
+    video_codec = None
     try:
         with open(input_file, "rb") as f:
             reader = make_reader(f, decoder_factories=[DecoderFactory()])
             for schema, channel, message, ros_msg in reader.iter_decoded_messages():
                 if (schema is not None
                         and schema.name in IMAGE_SCHEMAS and channel.topic == topic):
-                    if schema.name == "sensor_msgs/msg/CompressedImage":
+                    if schema.name == "foxglove_msgs/msg/CompressedVideo":
+                        if video_codec is None:
+                            try:
+                                import av
+                            except ImportError:
+                                print(
+                                    "\nError: The 'av' (PyAV) package is required to "
+                                    "decode foxglove_msgs/msg/CompressedVideo topics.\n"
+                                    "Install it with:\n"
+                                    "  pip install av\n"
+                                    "On some systems you may also need FFmpeg "
+                                    "development libraries:\n"
+                                    "  sudo apt-get install libavcodec-dev "
+                                    "libavformat-dev libavutil-dev libswscale-dev "
+                                    "libswresample-dev libavdevice-dev libavfilter-dev"
+                                )
+                                sys.exit(1)
+                            try:
+                                video_codec = av.CodecContext.create(
+                                    ros_msg.format, "r")
+                            except Exception as e:
+                                print(
+                                    f"\nError: Failed to initialize codec "
+                                    f"'{ros_msg.format}' for CompressedVideo "
+                                    f"decoding: {e}\n"
+                                    f"Make sure your FFmpeg installation supports "
+                                    f"the '{ros_msg.format}' codec.\n"
+                                    f"On Ubuntu/Debian, try:\n"
+                                    f"  sudo apt-get install libavcodec-extra"
+                                )
+                                sys.exit(1)
+                            _av = av  # keep reference for subsequent frames
+                        packet = _av.Packet(ros_msg.data)
+                        decoded_frames = video_codec.decode(packet)  # type: ignore[attr-defined]
+                        if not decoded_frames:
+                            continue
+                        img = decoded_frames[0].to_ndarray(format="rgb24")
+                        img_channel = 3
+                        used_encoding = ros_msg.format
+                    elif schema.name == "sensor_msgs/msg/CompressedImage":
                         img = Image.open(io.BytesIO(ros_msg.data)).convert("RGB")
                         img_channel = len(img.getbands())
                         used_encoding = getattr(ros_msg, "format", used_encoding)

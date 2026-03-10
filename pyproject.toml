@@ -14,6 +14,7 @@ dependencies = [
     "pillow>=10.2,<12.0",
     "numpy>=1.26.4,<3.0.0",
     "imageio[ffmpeg]>=2.34.0,<3.0.0",
+    "av>=12.0.0,<14.0.0",
 ]
 
 [project.urls]
