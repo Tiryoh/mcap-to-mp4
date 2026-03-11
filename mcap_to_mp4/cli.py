@@ -83,8 +83,11 @@ def print_progress_bar(current, total, memory_mb=None, bar_length=40):
 def parse_arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("input", help="input bag file path to read")
-    parser.add_argument("-t", "--topic", help="topic name to convert." +
-                        "if not specified, the topic list will be shown")
+    parser.add_argument(
+        "-t",
+        "--topic",
+        help="topic name to convert. if not specified, the topic list will be shown",
+    )
     parser.add_argument("-o", "--output", help="output file name", default="output.mp4")
     parser.add_argument("--timestamp-timing", action="store_true",
                         help="use sensor_msgs/Image.header.stamp based VFR timing")
@@ -175,7 +178,8 @@ def build_vfr_durations_ns(timestamps_ns: List[int]) -> List[int]:
 
 
 def quote_concat_path(path: str) -> str:
-    return "'" + path.replace("'", "'\\''") + "'"
+    # Escape backslashes first (for ffmpeg concat demuxer), then single quotes
+    return "'" + path.replace("\\", "\\\\").replace("'", "'\\''") + "'"
 
 
 def encode_vfr(output_file: str, image_paths: List[str], durations_ns: List[int]) -> None:
@@ -283,7 +287,8 @@ def convert_to_mp4(input_file, topic, output_file, timestamp_timing=False) -> No
     input_file = _sanitize_path(input_file)
     output_file = _sanitize_path(output_file)
     # --- Pass 1: scan timestamps and count frames (no decoding) ---
-    timestamps = []
+    timestamps: Optional[List[int]] = [] if not timestamp_timing else None
+    frame_count = 0
     spinner = Spinner("Scanning frames")
     spinner.start()
 
@@ -293,18 +298,20 @@ def convert_to_mp4(input_file, topic, output_file, timestamp_timing=False) -> No
             for schema, channel, message in reader.iter_messages():
                 if (schema is not None
                         and schema.name in IMAGE_SCHEMAS and channel.topic == topic):
-                    timestamps.append(message.log_time)
-                    spinner.count = len(timestamps)
+                    if timestamps is not None:
+                        timestamps.append(message.log_time)
+                    frame_count += 1
+                    spinner.count = frame_count
     finally:
         spinner.stop()
 
-    total_frames = len(timestamps)
+    total_frames = frame_count
     print(f"Total {total_frames} frames")
     if total_frames < 2:
         print("image data too short!!!")
         sys.exit(1)
 
-    if not timestamp_timing:
+    if not timestamp_timing and timestamps is not None:
         diff_timestamp = [timestamps[i+1] - timestamps[i] for i in range(len(timestamps) - 1)]
         mean_interval = mean(diff_timestamp)
         if mean_interval == 0:
