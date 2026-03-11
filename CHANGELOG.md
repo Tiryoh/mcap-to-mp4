@@ -2,12 +2,25 @@
 ## [Unreleased]
 
 
+<a name="v0.5.0"></a>
+## [v0.5.0] - 2026-03-11
+### Documentation
+- Clarify image topic scope in descriptions ([#56](https://github.com/Tiryoh/mcap-to-mp4/issues/56))
+
+### Features
+- Add optional timestamp-based VFR encoding ([#39](https://github.com/Tiryoh/mcap-to-mp4/issues/39))
+- Add end-to-end tests for MCAP-to-MP4 conversion ([#55](https://github.com/Tiryoh/mcap-to-mp4/issues/55))
+
+
+[Unreleased]: https://github.com/Tiryoh/mcap-to-mp4/compare/v0.5.0...HEAD
+[v0.5.0]: https://github.com/Tiryoh/mcap-to-mp4/compare/v0.4.1...v0.5.0
+
+
 <a name="v0.4.1"></a>
 ## [v0.4.1] - 2026-02-21
 ### Chore
 - Add uv lock step to bump-version workflow ([#52](https://github.com/Tiryoh/mcap-to-mp4/issues/52))
 
-[Unreleased]: https://github.com/Tiryoh/mcap-to-mp4/compare/v0.4.1...HEAD
 [v0.4.1]: https://github.com/Tiryoh/mcap-to-mp4/compare/v0.4.0...v0.4.1
 
 <a name="v0.4.0"></a>
