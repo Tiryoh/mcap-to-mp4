@@ -186,6 +186,7 @@ def convert_to_mp4(input_file, topic, output_file) -> None:
             return None
 
     video_codec = None
+    _av = None  # lazy-imported av module; kept at function scope for use across frames
     try:
         with open(input_file, "rb") as f:
             reader = make_reader(f, decoder_factories=[DecoderFactory()])
@@ -193,9 +194,10 @@ def convert_to_mp4(input_file, topic, output_file) -> None:
                 if (schema is not None
                         and schema.name in IMAGE_SCHEMAS and channel.topic == topic):
                     if schema.name == "foxglove_msgs/msg/CompressedVideo":
-                        if video_codec is None:
+                        if _av is None:
                             try:
                                 import av
+                                _av = av
                             except ImportError:
                                 print(
                                     "\nError: The 'av' (PyAV) package is required to "
@@ -209,8 +211,9 @@ def convert_to_mp4(input_file, topic, output_file) -> None:
                                     "libswresample-dev libavdevice-dev libavfilter-dev"
                                 )
                                 sys.exit(1)
+                        if video_codec is None:
                             try:
-                                video_codec = av.CodecContext.create(
+                                video_codec = _av.CodecContext.create(
                                     ros_msg.format, "r")
                             except Exception as e:
                                 print(
@@ -223,7 +226,6 @@ def convert_to_mp4(input_file, topic, output_file) -> None:
                                     f"  sudo apt-get install libavcodec-extra"
                                 )
                                 sys.exit(1)
-                            _av = av  # keep reference for subsequent frames
                         packet = _av.Packet(ros_msg.data)
                         decoded_frames = video_codec.decode(packet)  # type: ignore[attr-defined]
                         if not decoded_frames:
