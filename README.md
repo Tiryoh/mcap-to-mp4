@@ -16,9 +16,23 @@ As a result, the generated videos are well suited for experiment reviews, demos,
 入力メッセージがおおむね一定周期で記録されていることを前提とし、生成される MP4 は入力メッセージ間の平均フレーム間隔を用いて出力します。  
 そのため、実験の振り返りやデモ、プレゼンテーションに適しています。  
 
+## Supported Message Types
+
+| Message type | Description | Required dependencies |
+|---|---|---|
+| `sensor_msgs/msg/Image` | Uncompressed image (rgb8, bgr8, etc.) | pillow, numpy, imageio, ffmpeg |
+| `sensor_msgs/msg/CompressedImage` | JPEG/PNG compressed image | pillow, numpy, imageio, ffmpeg |
+| `foxglove_msgs/msg/CompressedVideo` | H.264/H.265 codec-compressed video | [PyAV](https://pyav.org/) (`av`), FFmpeg libraries, imageio, ffmpeg |
+
+`sensor_msgs/msg/Image` and `sensor_msgs/msg/CompressedImage` are supported out of the box.
+
+`foxglove_msgs/msg/CompressedVideo` requires [PyAV](https://pyav.org/) and FFmpeg development libraries for decoding codec-compressed frames (e.g., H.264 NAL units).
+PyAV is included as a dependency and installed automatically via `pip install` or `uv sync`.
+If codec initialization fails, make sure your FFmpeg installation supports the required codec (e.g., `libavcodec-extra` on Ubuntu/Debian).
+
 ## Requirements
 
-**Note:** This tool does **NOT** require a ROS 2 runtime environment.  
+**Note:** This tool does **NOT** require a ROS 2 runtime environment.
 You only need Python and the following dependencies:
 
 * Python3
@@ -27,6 +41,7 @@ You only need Python and the following dependencies:
     * pillow
     * numpy
     * imageio
+    * av (PyAV)
 * ffmpeg
 
 ## QuickStart
