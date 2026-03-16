@@ -2,7 +2,9 @@
 
 import io
 from dataclasses import dataclass
+from fractions import Fraction
 
+import av
 import imageio
 import numpy as np
 import pytest
@@ -24,6 +26,13 @@ IMAGE_MSGDEF = (
 
 COMPRESSED_IMAGE_MSGDEF = "string format\nuint8[] data"
 
+COMPRESSED_VIDEO_MSGDEF = (
+    "builtin_interfaces/Time timestamp\n"
+    "string frame_id\n"
+    "uint8[] data\n"
+    "string format"
+)
+
 STRING_MSGDEF = "string data"
 
 
@@ -43,6 +52,24 @@ class ImageMsg:
 class CompressedImageMsg:
     format: str = ""
     data: bytes = b""
+
+
+@dataclass
+class CompressedVideoTimestamp:
+    sec: int = 0
+    nanosec: int = 0
+
+
+@dataclass
+class CompressedVideoMsg:
+    timestamp: CompressedVideoTimestamp = None  # type: ignore[assignment]
+    frame_id: str = ""
+    data: bytes = b""
+    format: str = ""
+
+    def __post_init__(self):
+        if self.timestamp is None:
+            self.timestamp = CompressedVideoTimestamp()
 
 
 @dataclass
@@ -350,3 +377,81 @@ class TestE2EFPS:
 
         fps = read_mp4_fps(mp4_path)
         assert abs(fps - 10.0) < 1.0, f"Expected ~10 fps, got {fps}"
+
+
+def create_test_mcap_compressed_video(path, topic="/camera/compressed_video",
+                                      width=DEFAULT_WIDTH, height=DEFAULT_HEIGHT,
+                                      colors=None, fps=DEFAULT_FPS):
+    """Create an MCAP file with foxglove_msgs/msg/CompressedVideo (H.264) messages.
+
+    Each frame is a solid color from the ``colors`` list, encoded as an H.264
+    keyframe using PyAV.
+    """
+    if colors is None:
+        colors = DEFAULT_COLORS
+    interval_ns = int(1e9 / fps)
+
+    # Encode each color frame to H.264 using PyAV
+    try:
+        codec = av.CodecContext.create("libx264", "w")
+    except Exception:
+        pytest.skip("libx264 encoder is not available in this environment")
+    codec.width = width
+    codec.height = height
+    codec.pix_fmt = "yuv420p"
+    codec.time_base = Fraction(1, fps)
+    codec.options = {"preset": "ultrafast", "tune": "stillimage"}
+    codec.open()
+
+    encoded_packets = []
+    for i, color_rgb in enumerate(colors):
+        img_array = np.full((height, width, 3), color_rgb, dtype=np.uint8)
+        frame = av.VideoFrame.from_ndarray(img_array, format="rgb24")
+        frame.pts = i
+        for packet in codec.encode(frame):
+            encoded_packets.append((i, bytes(packet)))
+
+    # Flush the encoder
+    for packet in codec.encode():
+        encoded_packets.append((len(colors) - 1, bytes(packet)))
+
+    with open(path, "wb") as f:
+        writer = Writer(f)
+        schema = writer.register_msgdef("foxglove_msgs/msg/CompressedVideo",
+                                        COMPRESSED_VIDEO_MSGDEF)
+        for frame_idx, packet_data in encoded_packets:
+            t_ns = 1_000_000_000 + frame_idx * interval_ns
+            msg = CompressedVideoMsg(
+                timestamp=CompressedVideoTimestamp(
+                    sec=t_ns // 1_000_000_000,
+                    nanosec=t_ns % 1_000_000_000,
+                ),
+                frame_id="camera",
+                data=packet_data,
+                format="h264",
+            )
+            writer.write_message(topic, schema, msg, log_time=t_ns)
+        writer.finish()
+
+
+class TestE2ECompressedVideo:
+    def test_e2e_compressed_video_h264(self, tmp_path):
+        """Convert H.264 CompressedVideo frames to MP4 and verify colors."""
+        mcap_path = str(tmp_path / "test.mcap")
+        mp4_path = str(tmp_path / "output.mp4")
+        create_test_mcap_compressed_video(mcap_path)
+
+        convert_to_mp4(mcap_path, "/camera/compressed_video", mp4_path)
+
+        frames = read_mp4_frames(mp4_path)
+        assert len(frames) >= len(DEFAULT_COLORS)
+        for frame, expected in zip(frames, DEFAULT_COLORS):
+            assert_frame_color(frame, expected)
+
+    def test_e2e_compressed_video_topic_list(self, tmp_path):
+        """Verify CompressedVideo topics appear in get_image_topic_list."""
+        mcap_path = str(tmp_path / "test.mcap")
+        create_test_mcap_compressed_video(mcap_path)
+
+        topics = get_image_topic_list(mcap_path)
+        assert "/camera/compressed_video" in topics

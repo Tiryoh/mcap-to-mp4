@@ -18,9 +18,23 @@ As a result, the generated videos are well suited for experiment reviews, demos,
 `--timestamp-timing` を指定すると `sensor_msgs/Image.header.stamp` を使った可変フレームレート（VFR: Variable Frame Rate / 可変フレームレート）で出力します。
 そのため、実験の振り返りやデモ、プレゼンテーションに適しています。  
 
+## Supported Message Types
+
+| Message type | Description | Required dependencies |
+|---|---|---|
+| `sensor_msgs/msg/Image` | Uncompressed image (rgb8, bgr8, etc.) | pillow, numpy, imageio, ffmpeg |
+| `sensor_msgs/msg/CompressedImage` | JPEG/PNG compressed image | pillow, numpy, imageio, ffmpeg |
+| `foxglove_msgs/msg/CompressedVideo` | H.264/H.265 codec-compressed video | [PyAV](https://pyav.org/) (`av`), FFmpeg libraries, imageio, ffmpeg |
+
+`sensor_msgs/msg/Image` and `sensor_msgs/msg/CompressedImage` are supported out of the box.
+
+`foxglove_msgs/msg/CompressedVideo` requires [PyAV](https://pyav.org/) and FFmpeg development libraries for decoding codec-compressed frames (e.g., H.264 NAL units).
+PyAV is included as a dependency and installed automatically via `pip install` or `uv sync`.
+If codec initialization fails, make sure your FFmpeg installation supports the required codec (e.g., `libavcodec-extra` on Ubuntu/Debian).
+
 ## Requirements
 
-**Note:** This tool does **NOT** require a ROS 2 runtime environment.  
+**Note:** This tool does **NOT** require a ROS 2 runtime environment.
 You only need Python and the following dependencies:
 
 * Python3
@@ -29,6 +43,7 @@ You only need Python and the following dependencies:
     * pillow
     * numpy
     * imageio
+    * av (PyAV)
 * ffmpeg
 
 ## QuickStart

@@ -23,7 +23,11 @@ from mcap.reader import make_reader
 from mcap_ros2.decoder import DecoderFactory
 from PIL import Image
 
-IMAGE_SCHEMAS = {"sensor_msgs/msg/Image", "sensor_msgs/msg/CompressedImage"}
+IMAGE_SCHEMAS = {
+    "sensor_msgs/msg/Image",
+    "sensor_msgs/msg/CompressedImage",
+    "foxglove_msgs/msg/CompressedVideo",
+}
 NANOSECONDS_PER_SECOND = 1_000_000_000
 DEFAULT_FALLBACK_FPS = 30.0
 MAX_GAP_MULTIPLIER = 10.0
@@ -122,12 +126,8 @@ def _sanitize_path(file_path: str) -> str:
     return file_path
 
 
-def get_header_stamp_ns(ros_msg) -> Optional[int]:
-    header = getattr(ros_msg, "header", None)
-    stamp = getattr(header, "stamp", None)
-    if stamp is None:
-        return None
-
+def _extract_stamp_ns(stamp) -> Optional[int]:
+    """Extract nanosecond timestamp from a stamp object with sec/nanosec fields."""
     sec = getattr(stamp, "sec", None)
     nanosec = getattr(stamp, "nanosec", None)
     if nanosec is None:
@@ -139,6 +139,23 @@ def get_header_stamp_ns(ros_msg) -> Optional[int]:
         return int(sec) * NANOSECONDS_PER_SECOND + int(nanosec)
     except (TypeError, ValueError):
         return None
+
+
+def get_header_stamp_ns(ros_msg) -> Optional[int]:
+    # Try header.stamp first (sensor_msgs/msg/Image, sensor_msgs/msg/CompressedImage)
+    header = getattr(ros_msg, "header", None)
+    stamp = getattr(header, "stamp", None)
+    if stamp is not None:
+        result = _extract_stamp_ns(stamp)
+        if result is not None:
+            return result
+
+    # Try direct timestamp field (foxglove_msgs/msg/CompressedVideo)
+    timestamp = getattr(ros_msg, "timestamp", None)
+    if timestamp is not None:
+        return _extract_stamp_ns(timestamp)
+
+    return None
 
 
 def build_vfr_durations_ns(timestamps_ns: List[int]) -> List[int]:
@@ -232,8 +249,57 @@ def _get_peak_memory_mb():
         return None
 
 
-def _decode_frame(schema, ros_msg):
-    """Decode a single frame from a ROS message. Returns (img, img_channel, used_encoding)."""
+def _decode_frame(schema, ros_msg, _av_state=None):
+    """Decode a single frame from a ROS message. Returns (img, img_channel, used_encoding).
+
+    For foxglove_msgs/msg/CompressedVideo, _av_state dict is used to persist
+    the lazy-imported av module and codec context across frames.
+    """
+    if schema.name == "foxglove_msgs/msg/CompressedVideo":
+        if _av_state is None:
+            _av_state = {}
+        if "_av" not in _av_state:
+            try:
+                import av
+                _av_state["_av"] = av
+            except ImportError:
+                print(
+                    "\nError: The 'av' (PyAV) package is required to "
+                    "decode foxglove_msgs/msg/CompressedVideo topics.\n"
+                    "Install it with:\n"
+                    "  pip install av\n"
+                    "On some systems you may also need FFmpeg "
+                    "development libraries:\n"
+                    "  sudo apt-get install libavcodec-dev "
+                    "libavformat-dev libavutil-dev libswscale-dev "
+                    "libswresample-dev libavdevice-dev libavfilter-dev"
+                )
+                sys.exit(1)
+        _av = _av_state["_av"]
+        if "codec" not in _av_state:
+            try:
+                _av_state["codec"] = _av.CodecContext.create(ros_msg.format, "r")
+            except Exception as e:
+                print(
+                    f"\nError: Failed to initialize codec "
+                    f"'{ros_msg.format}' for CompressedVideo "
+                    f"decoding: {e}\n"
+                    f"Make sure your FFmpeg installation supports "
+                    f"the '{ros_msg.format}' codec.\n"
+                    f"On Ubuntu/Debian, try:\n"
+                    f"  sudo apt-get install libavcodec-extra"
+                )
+                sys.exit(1)
+        video_codec = _av_state["codec"]
+        packet = _av.Packet(ros_msg.data)
+        decoded_frames = video_codec.decode(packet)
+        if not decoded_frames:
+            return None, 3, ros_msg.format
+        img = decoded_frames[0].to_ndarray(format="rgb24")
+        img_channel = 3
+        used_encoding = ros_msg.format
+        return img, img_channel, used_encoding
+
     if schema.name == "sensor_msgs/msg/CompressedImage":
         img = Image.open(io.BytesIO(ros_msg.data)).convert("RGB")
         img_channel = len(img.getbands())
@@ -327,6 +393,7 @@ def convert_to_mp4(input_file, topic, output_file, timestamp_timing=False) -> No
     memory_warning_shown = False
     current_memory_mb = None
     warned_missing_stamp = False
+    _av_state: dict = {}  # shared state for CompressedVideo codec across frames
 
     if timestamp_timing:
         # VFR path: save frames as PNGs to temp dir, collect header.stamps
@@ -340,11 +407,16 @@ def convert_to_mp4(input_file, topic, output_file, timestamp_timing=False) -> No
                 for schema, channel, message, ros_msg in reader.iter_decoded_messages():
                     if (schema is not None
                             and schema.name in IMAGE_SCHEMAS and channel.topic == topic):
-                        img, img_channel, enc = _decode_frame(schema, ros_msg)
+                        img, img_channel, enc = _decode_frame(
+                            schema, ros_msg, _av_state)
+                        if img is None:
+                            continue
                         if enc is not None:
                             used_encoding = enc
 
                         image_path = os.path.join(temp_dir, f"frame_{frame_idx:06d}.png")
+                        if not isinstance(img, Image.Image):
+                            img = Image.fromarray(img)
                         img.save(image_path)
                         image_paths.append(image_path)
 
@@ -377,7 +449,10 @@ def convert_to_mp4(input_file, topic, output_file, timestamp_timing=False) -> No
                 for schema, channel, message, ros_msg in reader.iter_decoded_messages():
                     if (schema is not None
                             and schema.name in IMAGE_SCHEMAS and channel.topic == topic):
-                        img, img_channel, enc = _decode_frame(schema, ros_msg)
+                        img, img_channel, enc = _decode_frame(
+                            schema, ros_msg, _av_state)
+                        if img is None:
+                            continue
                         if enc is not None:
                             used_encoding = enc
 
