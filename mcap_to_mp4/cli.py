@@ -126,12 +126,8 @@ def _sanitize_path(file_path: str) -> str:
     return file_path
 
 
-def get_header_stamp_ns(ros_msg) -> Optional[int]:
-    header = getattr(ros_msg, "header", None)
-    stamp = getattr(header, "stamp", None)
-    if stamp is None:
-        return None
-
+def _extract_stamp_ns(stamp) -> Optional[int]:
+    """Extract nanosecond timestamp from a stamp object with sec/nanosec fields."""
     sec = getattr(stamp, "sec", None)
     nanosec = getattr(stamp, "nanosec", None)
     if nanosec is None:
@@ -143,6 +139,23 @@ def get_header_stamp_ns(ros_msg) -> Optional[int]:
         return int(sec) * NANOSECONDS_PER_SECOND + int(nanosec)
     except (TypeError, ValueError):
         return None
+
+
+def get_header_stamp_ns(ros_msg) -> Optional[int]:
+    # Try header.stamp first (sensor_msgs/msg/Image, sensor_msgs/msg/CompressedImage)
+    header = getattr(ros_msg, "header", None)
+    stamp = getattr(header, "stamp", None)
+    if stamp is not None:
+        result = _extract_stamp_ns(stamp)
+        if result is not None:
+            return result
+
+    # Try direct timestamp field (foxglove_msgs/msg/CompressedVideo)
+    timestamp = getattr(ros_msg, "timestamp", None)
+    if timestamp is not None:
+        return _extract_stamp_ns(timestamp)
+
+    return None
 
 
 def build_vfr_durations_ns(timestamps_ns: List[int]) -> List[int]:
@@ -380,7 +393,7 @@ def convert_to_mp4(input_file, topic, output_file, timestamp_timing=False) -> No
     memory_warning_shown = False
     current_memory_mb = None
     warned_missing_stamp = False
-    _av_state = {}  # shared state for CompressedVideo codec across frames
+    _av_state: dict = {}  # shared state for CompressedVideo codec across frames
 
     if timestamp_timing:
         # VFR path: save frames as PNGs to temp dir, collect header.stamps

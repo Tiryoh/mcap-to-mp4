@@ -8,10 +8,9 @@ from PIL import Image
 
 from mcap_to_mp4.cli import (DEFAULT_FALLBACK_FPS, MAX_GAP_MULTIPLIER,
                              NANOSECONDS_PER_SECOND, _sanitize_path,
-                             build_vfr_durations_ns,
-                             check_file_exists, convert_to_mp4, encode_vfr,
-                             get_header_stamp_ns, get_image_topic_list,
-                             parse_arguments)
+                             build_vfr_durations_ns, check_file_exists,
+                             convert_to_mp4, encode_vfr, get_header_stamp_ns,
+                             get_image_topic_list, parse_arguments)
 
 
 def test_parse_arguments():
@@ -47,6 +46,18 @@ def test_check_file_exists_invalid():
 def test_get_header_stamp_ns():
     ros_msg = SimpleNamespace(header=SimpleNamespace(stamp=SimpleNamespace(sec=1, nanosec=2)))
     assert get_header_stamp_ns(ros_msg) == NANOSECONDS_PER_SECOND + 2
+
+
+def test_get_header_stamp_ns_compressed_video():
+    """CompressedVideo uses ros_msg.timestamp instead of ros_msg.header.stamp."""
+    ros_msg = SimpleNamespace(timestamp=SimpleNamespace(sec=5, nanosec=100))
+    assert get_header_stamp_ns(ros_msg) == 5 * NANOSECONDS_PER_SECOND + 100
+
+
+def test_get_header_stamp_ns_none():
+    """Returns None when neither header.stamp nor timestamp is present."""
+    ros_msg = SimpleNamespace()
+    assert get_header_stamp_ns(ros_msg) is None
 
 
 def test_get_image_topic_list():

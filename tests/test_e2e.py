@@ -392,7 +392,10 @@ def create_test_mcap_compressed_video(path, topic="/camera/compressed_video",
     interval_ns = int(1e9 / fps)
 
     # Encode each color frame to H.264 using PyAV
-    codec = av.CodecContext.create("libx264", "w")
+    try:
+        codec = av.CodecContext.create("libx264", "w")
+    except Exception:
+        pytest.skip("libx264 encoder is not available in this environment")
     codec.width = width
     codec.height = height
     codec.pix_fmt = "yuv420p"
@@ -416,7 +419,7 @@ def create_test_mcap_compressed_video(path, topic="/camera/compressed_video",
         writer = Writer(f)
         schema = writer.register_msgdef("foxglove_msgs/msg/CompressedVideo",
                                         COMPRESSED_VIDEO_MSGDEF)
-        for i, (frame_idx, packet_data) in enumerate(encoded_packets):
+        for frame_idx, packet_data in encoded_packets:
             t_ns = 1_000_000_000 + frame_idx * interval_ns
             msg = CompressedVideoMsg(
                 timestamp=CompressedVideoTimestamp(
