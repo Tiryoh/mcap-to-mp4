@@ -23,7 +23,7 @@ from mcap.reader import make_reader
 from mcap_ros2.decoder import DecoderFactory
 from PIL import Image
 
-IMAGE_SCHEMAS = {
+SUPPORTED_SCHEMAS = {
     "sensor_msgs/msg/Image",
     "sensor_msgs/msg/CompressedImage",
     "foxglove_msgs/msg/CompressedVideo",
@@ -94,7 +94,7 @@ def parse_arguments() -> argparse.Namespace:
     )
     parser.add_argument("-o", "--output", help="output file name", default="output.mp4")
     parser.add_argument("--timestamp-timing", action="store_true",
-                        help="use sensor_msgs/Image.header.stamp based VFR timing")
+                        help="use per-message timestamp based VFR timing")
     return parser.parse_args()
 
 
@@ -113,7 +113,7 @@ def get_image_topic_list(mcap_file_path: str) -> List[str]:
         schemas = summary.schemas
         for channel in summary.channels.values():
             schema = schemas.get(channel.schema_id)
-            if schema is not None and schema.name in IMAGE_SCHEMAS:
+            if schema is not None and schema.name in SUPPORTED_SCHEMAS:
                 topic_list.append(channel.topic)
     return list(set(topic_list))
 
@@ -249,37 +249,38 @@ def _get_peak_memory_mb():
         return None
 
 
-def _decode_frame(schema, ros_msg, _av_state=None):
+def _decode_frame(schema, ros_msg, _av_state):
     """Decode a single frame from a ROS message. Returns (img, img_channel, used_encoding).
 
-    For foxglove_msgs/msg/CompressedVideo, _av_state dict is used to persist
-    the lazy-imported av module and codec context across frames.
+    For foxglove_msgs/msg/CompressedVideo, _av_state dict is required to persist
+    the lazy-imported av module and codec context across frames. Callers must
+    pass a mutable dict and reuse it for all frames in a topic.
     """
     if schema.name == "foxglove_msgs/msg/CompressedVideo":
-        if _av_state is None:
-            _av_state = {}
         if "_av" not in _av_state:
             try:
                 import av
                 _av_state["_av"] = av
             except ImportError:
                 print(
-                    "\nError: The 'av' (PyAV) package is required to "
-                    "decode foxglove_msgs/msg/CompressedVideo topics.\n"
-                    "Install it with:\n"
-                    "  pip install av\n"
+                    "\nError: The 'av' (PyAV) package could not "
+                    "be imported. It is a required dependency of "
+                    "mcap-to-mp4.\n"
+                    "Try reinstalling:\n"
+                    "  pip install --force-reinstall av\n"
                     "On some systems you may also need FFmpeg "
                     "development libraries:\n"
                     "  sudo apt-get install libavcodec-dev "
                     "libavformat-dev libavutil-dev libswscale-dev "
-                    "libswresample-dev libavdevice-dev libavfilter-dev"
+                    "libswresample-dev libavdevice-dev "
+                    "libavfilter-dev"
                 )
                 sys.exit(1)
         _av = _av_state["_av"]
         if "codec" not in _av_state:
             try:
                 _av_state["codec"] = _av.CodecContext.create(ros_msg.format, "r")
-            except Exception as e:
+            except (ValueError, _av.error.FFmpegError) as e:
                 print(
                     f"\nError: Failed to initialize codec "
                     f"'{ros_msg.format}' for CompressedVideo "
@@ -292,9 +293,19 @@ def _decode_frame(schema, ros_msg, _av_state=None):
                 sys.exit(1)
         video_codec = _av_state["codec"]
         packet = _av.Packet(ros_msg.data)
-        decoded_frames = video_codec.decode(packet)
+        try:
+            decoded_frames = video_codec.decode(packet)
+        except _av.error.FFmpegError:
+            return None, 3, ros_msg.format
         if not decoded_frames:
             return None, 3, ros_msg.format
+        if len(decoded_frames) > 1:
+            if not _av_state.get("_warned_multi_frame"):
+                print(
+                    f"Warning: CompressedVideo packet decoded "
+                    f"to {len(decoded_frames)} frames; "
+                    f"using only the first.")
+                _av_state["_warned_multi_frame"] = True
         img = decoded_frames[0].to_ndarray(format="rgb24")
         img_channel = 3
         used_encoding = ros_msg.format
@@ -363,7 +374,7 @@ def convert_to_mp4(input_file, topic, output_file, timestamp_timing=False) -> No
             reader = make_reader(f)
             for schema, channel, message in reader.iter_messages():
                 if (schema is not None
-                        and schema.name in IMAGE_SCHEMAS and channel.topic == topic):
+                        and schema.name in SUPPORTED_SCHEMAS and channel.topic == topic):
                     if timestamps is not None:
                         timestamps.append(message.log_time)
                     frame_count += 1
@@ -394,9 +405,10 @@ def convert_to_mp4(input_file, topic, output_file, timestamp_timing=False) -> No
     current_memory_mb = None
     warned_missing_stamp = False
     _av_state: dict = {}  # shared state for CompressedVideo codec across frames
+    skipped_frames = 0
 
     if timestamp_timing:
-        # VFR path: save frames as PNGs to temp dir, collect header.stamps
+        # VFR path: save frames as PNGs to temp dir, collect timestamps
         temp_dir = tempfile.mkdtemp(prefix="mcap_to_mp4_")
         image_paths: List[str] = []
         timestamps_ns: List[int] = []
@@ -406,10 +418,11 @@ def convert_to_mp4(input_file, topic, output_file, timestamp_timing=False) -> No
                 reader = make_reader(f, decoder_factories=[DecoderFactory()])
                 for schema, channel, message, ros_msg in reader.iter_decoded_messages():
                     if (schema is not None
-                            and schema.name in IMAGE_SCHEMAS and channel.topic == topic):
+                            and schema.name in SUPPORTED_SCHEMAS and channel.topic == topic):
                         img, img_channel, enc = _decode_frame(
                             schema, ros_msg, _av_state)
                         if img is None:
+                            skipped_frames += 1
                             continue
                         if enc is not None:
                             used_encoding = enc
@@ -435,6 +448,12 @@ def convert_to_mp4(input_file, topic, output_file, timestamp_timing=False) -> No
                         print_progress_bar(frame_idx, total_frames, current_memory_mb)
 
             print()
+            if skipped_frames > 0:
+                print(f"Warning: {skipped_frames} frame(s) could "
+                      f"not be decoded and were skipped.")
+            if not image_paths:
+                print("Error: No frames could be decoded.")
+                sys.exit(1)
             print("Saving file...")
             durations_ns = build_vfr_durations_ns(timestamps_ns)
             encode_vfr(output_file, image_paths, durations_ns)
@@ -448,10 +467,11 @@ def convert_to_mp4(input_file, topic, output_file, timestamp_timing=False) -> No
                 reader = make_reader(f, decoder_factories=[DecoderFactory()])
                 for schema, channel, message, ros_msg in reader.iter_decoded_messages():
                     if (schema is not None
-                            and schema.name in IMAGE_SCHEMAS and channel.topic == topic):
+                            and schema.name in SUPPORTED_SCHEMAS and channel.topic == topic):
                         img, img_channel, enc = _decode_frame(
                             schema, ros_msg, _av_state)
                         if img is None:
+                            skipped_frames += 1
                             continue
                         if enc is not None:
                             used_encoding = enc
@@ -464,6 +484,16 @@ def convert_to_mp4(input_file, topic, output_file, timestamp_timing=False) -> No
         finally:
             video_writer.close()
         print()
+        if skipped_frames > 0:
+            print(f"Warning: {skipped_frames} frame(s) could "
+                  f"not be decoded and were skipped. "
+                  f"CFR timing is based on all messages, "
+                  f"so playback speed may be affected.")
+        if frame_idx == 0:
+            if os.path.isfile(output_file):
+                os.remove(output_file)
+            print("Error: No frames could be decoded.")
+            sys.exit(1)
 
     if img_channel == 3:
         if used_encoding == "bgr8":

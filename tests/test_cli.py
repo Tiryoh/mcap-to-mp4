@@ -7,10 +7,11 @@ import pytest
 from PIL import Image
 
 from mcap_to_mp4.cli import (DEFAULT_FALLBACK_FPS, MAX_GAP_MULTIPLIER,
-                             NANOSECONDS_PER_SECOND, _sanitize_path,
-                             build_vfr_durations_ns, check_file_exists,
-                             convert_to_mp4, encode_vfr, get_header_stamp_ns,
-                             get_image_topic_list, parse_arguments)
+                             NANOSECONDS_PER_SECOND, _decode_frame,
+                             _sanitize_path, build_vfr_durations_ns,
+                             check_file_exists, convert_to_mp4, encode_vfr,
+                             get_header_stamp_ns, get_image_topic_list,
+                             parse_arguments)
 
 
 def test_parse_arguments():
@@ -605,3 +606,253 @@ def test_encode_vfr_calls_ffmpeg():
     assert "concat" in ffmpeg_command
     assert "-vsync" in ffmpeg_command
     assert "vfr" in ffmpeg_command
+
+
+# --- _decode_frame error path tests ---
+
+
+def test_decode_frame_av_import_error():
+    """sys.exit(1) when av cannot be imported for CompressedVideo."""
+    schema = MagicMock()
+    schema.name = "foxglove_msgs/msg/CompressedVideo"
+    ros_msg = MagicMock()
+    ros_msg.format = "h264"
+    ros_msg.data = b"\x00"
+
+    with patch.dict('sys.modules', {'av': None}):
+        with pytest.raises(SystemExit) as exc_info:
+            _decode_frame(schema, ros_msg, {})
+        assert exc_info.value.code == 1
+
+
+def test_decode_frame_codec_init_failure():
+    """sys.exit(1) when codec initialization fails."""
+    schema = MagicMock()
+    schema.name = "foxglove_msgs/msg/CompressedVideo"
+    ros_msg = MagicMock()
+    ros_msg.format = "unsupported_codec"
+    ros_msg.data = b"\x00"
+
+    MockFFmpegError = type('FFmpegError', (Exception,), {})
+    mock_av = MagicMock()
+    mock_av.error.FFmpegError = MockFFmpegError
+    mock_av.CodecContext.create.side_effect = ValueError(
+        "unsupported_codec")
+
+    with pytest.raises(SystemExit) as exc_info:
+        _decode_frame(schema, ros_msg, {"_av": mock_av})
+    assert exc_info.value.code == 1
+
+
+def test_decode_frame_empty_decode_returns_none():
+    """_decode_frame returns None when decode yields no frames."""
+    schema = MagicMock()
+    schema.name = "foxglove_msgs/msg/CompressedVideo"
+    ros_msg = MagicMock()
+    ros_msg.format = "h264"
+    ros_msg.data = b"\x00"
+
+    mock_codec = MagicMock()
+    mock_codec.decode.return_value = []
+    mock_av = MagicMock()
+
+    av_state = {"_av": mock_av, "codec": mock_codec}
+    img, ch, enc = _decode_frame(schema, ros_msg, av_state)
+    assert img is None
+    assert ch == 3
+    assert enc == "h264"
+
+
+def test_decode_frame_decode_error_returns_none():
+    """_decode_frame returns None when decode raises FFmpegError."""
+    schema = MagicMock()
+    schema.name = "foxglove_msgs/msg/CompressedVideo"
+    ros_msg = MagicMock()
+    ros_msg.format = "h264"
+    ros_msg.data = b"\x00"
+
+    MockFFmpegError = type('FFmpegError', (Exception,), {})
+    mock_av = MagicMock()
+    mock_av.error.FFmpegError = MockFFmpegError
+
+    mock_codec = MagicMock()
+    mock_codec.decode.side_effect = MockFFmpegError("bad data")
+
+    av_state = {"_av": mock_av, "codec": mock_codec}
+    img, ch, enc = _decode_frame(schema, ros_msg, av_state)
+    assert img is None
+
+
+def test_decode_frame_codec_init_unexpected_exception_propagates():
+    """Exceptions outside (ValueError, FFmpegError) propagate."""
+    schema = MagicMock()
+    schema.name = "foxglove_msgs/msg/CompressedVideo"
+    ros_msg = MagicMock()
+    ros_msg.format = "h264"
+    ros_msg.data = b"\x00"
+
+    MockFFmpegError = type('FFmpegError', (Exception,), {})
+    mock_av = MagicMock()
+    mock_av.error.FFmpegError = MockFFmpegError
+    mock_av.CodecContext.create.side_effect = RuntimeError(
+        "unexpected")
+
+    with pytest.raises(RuntimeError, match="unexpected"):
+        _decode_frame(schema, ros_msg, {"_av": mock_av})
+
+
+def test_decode_frame_multi_frame_warning_once(capsys):
+    """Multi-frame warning is printed once across multiple calls."""
+    schema = MagicMock()
+    schema.name = "foxglove_msgs/msg/CompressedVideo"
+    ros_msg = MagicMock()
+    ros_msg.format = "h264"
+    ros_msg.data = b"\x00"
+
+    mock_frame = MagicMock()
+    mock_frame.to_ndarray.return_value = np.zeros(
+        (2, 2, 3), dtype=np.uint8)
+
+    mock_codec = MagicMock()
+    mock_codec.decode.return_value = [mock_frame, mock_frame]
+    mock_av = MagicMock()
+
+    av_state = {"_av": mock_av, "codec": mock_codec}
+
+    _decode_frame(schema, ros_msg, av_state)
+    _decode_frame(schema, ros_msg, av_state)
+
+    captured = capsys.readouterr()
+    assert captured.out.count("Warning: CompressedVideo packet") == 1
+
+
+# --- convert_to_mp4 skipped frame tests ---
+
+
+def _make_compressed_video_messages(count, decode_returns):
+    """Helper: create CompressedVideo messages for convert_to_mp4 tests.
+
+    decode_returns: list of return values for codec.decode() per message.
+    """
+    schema = MagicMock()
+    schema.name = "foxglove_msgs/msg/CompressedVideo"
+    ros_msg = MagicMock()
+    ros_msg.format = "h264"
+    ros_msg.data = b"\x00\x00\x00\x01"
+
+    messages = [
+        (
+            schema,
+            MagicMock(topic="/cam"),
+            MagicMock(log_time=1_000_000 + t),
+            ros_msg,
+        )
+        for t in range(count)
+    ]
+
+    mock_frame = MagicMock()
+    mock_frame.to_ndarray.return_value = np.zeros(
+        (4, 4, 3), dtype=np.uint8)
+
+    mock_codec = MagicMock()
+    mock_codec.decode.side_effect = decode_returns
+
+    mock_av = MagicMock()
+    mock_av.CodecContext.create.return_value = mock_codec
+
+    return messages, mock_av
+
+
+def test_convert_to_mp4_cfr_partial_skip_warning(capsys):
+    """CFR: partial skip prints warning with timing note."""
+    mock_frame = MagicMock()
+    mock_frame.to_ndarray.return_value = np.zeros(
+        (4, 4, 3), dtype=np.uint8)
+
+    # 3 messages: first two decode ok, third returns empty
+    messages, mock_av = _make_compressed_video_messages(
+        3, [[mock_frame], [mock_frame], []])
+
+    mock_writer = MagicMock()
+
+    with patch('mcap_to_mp4.cli.make_reader',
+               side_effect=setup_two_pass_reader(messages)), \
+            patch('mcap_to_mp4.cli.imageio.get_writer',
+                  return_value=mock_writer), \
+            patch.dict('sys.modules', {'av': mock_av}), \
+            patch('builtins.open', mock_open()):
+        convert_to_mp4("dummy.mcap", "/cam", "output.mp4")
+
+    captured = capsys.readouterr()
+    assert "1 frame(s) could not be decoded" in captured.out
+    assert "playback speed may be affected" in captured.out
+    assert mock_writer.append_data.call_count == 2
+
+
+def test_convert_to_mp4_vfr_partial_skip_warning(capsys):
+    """VFR: partial skip prints warning and conversion succeeds."""
+    mock_frame = MagicMock()
+    mock_frame.to_ndarray.return_value = np.zeros(
+        (4, 4, 3), dtype=np.uint8)
+
+    messages, mock_av = _make_compressed_video_messages(
+        3, [[mock_frame], [mock_frame], []])
+
+    with patch('mcap_to_mp4.cli.make_reader',
+               side_effect=setup_two_pass_reader(messages)), \
+            patch('mcap_to_mp4.cli.encode_vfr') as mock_vfr, \
+            patch('mcap_to_mp4.cli.tempfile.mkdtemp',
+                  return_value='/tmp/test'), \
+            patch('mcap_to_mp4.cli.shutil.rmtree'), \
+            patch.dict('sys.modules', {'av': mock_av}), \
+            patch('builtins.open', mock_open()):
+        convert_to_mp4(
+            "dummy.mcap", "/cam", "output.mp4",
+            timestamp_timing=True)
+
+    captured = capsys.readouterr()
+    assert "1 frame(s) could not be decoded" in captured.out
+    mock_vfr.assert_called_once()
+
+
+def test_convert_to_mp4_cfr_all_skip_exits():
+    """CFR: all frames skipped causes sys.exit(1) and removes output."""
+    messages, mock_av = _make_compressed_video_messages(
+        3, [[], [], []])
+
+    mock_writer = MagicMock()
+
+    with patch('mcap_to_mp4.cli.make_reader',
+               side_effect=setup_two_pass_reader(messages)), \
+            patch('mcap_to_mp4.cli.imageio.get_writer',
+                  return_value=mock_writer), \
+            patch.dict('sys.modules', {'av': mock_av}), \
+            patch('builtins.open', mock_open()), \
+            patch('mcap_to_mp4.cli.os.path.isfile',
+                  return_value=True) as mock_isfile, \
+            patch('mcap_to_mp4.cli.os.remove') as mock_remove:
+        with pytest.raises(SystemExit) as exc_info:
+            convert_to_mp4("dummy.mcap", "/cam", "output.mp4")
+        assert exc_info.value.code == 1
+        mock_remove.assert_called_once_with("output.mp4")
+
+
+def test_convert_to_mp4_vfr_all_skip_exits():
+    """VFR: all frames skipped causes sys.exit(1), encode_vfr not called."""
+    messages, mock_av = _make_compressed_video_messages(
+        3, [[], [], []])
+
+    with patch('mcap_to_mp4.cli.make_reader',
+               side_effect=setup_two_pass_reader(messages)), \
+            patch('mcap_to_mp4.cli.encode_vfr') as mock_vfr, \
+            patch('mcap_to_mp4.cli.tempfile.mkdtemp',
+                  return_value='/tmp/test'), \
+            patch('mcap_to_mp4.cli.shutil.rmtree'), \
+            patch.dict('sys.modules', {'av': mock_av}), \
+            patch('builtins.open', mock_open()):
+        with pytest.raises(SystemExit) as exc_info:
+            convert_to_mp4(
+                "dummy.mcap", "/cam", "output.mp4",
+                timestamp_timing=True)
+        assert exc_info.value.code == 1
+    mock_vfr.assert_not_called()
