@@ -829,7 +829,7 @@ def test_convert_to_mp4_cfr_all_skip_exits():
             patch.dict('sys.modules', {'av': mock_av}), \
             patch('builtins.open', mock_open()), \
             patch('mcap_to_mp4.cli.os.path.isfile',
-                  return_value=True) as mock_isfile, \
+                  return_value=True), \
             patch('mcap_to_mp4.cli.os.remove') as mock_remove:
         with pytest.raises(SystemExit) as exc_info:
             convert_to_mp4("dummy.mcap", "/cam", "output.mp4")
