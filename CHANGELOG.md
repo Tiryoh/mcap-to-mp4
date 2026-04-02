@@ -2,6 +2,24 @@
 ## [Unreleased]
 
 
+<a name="v0.6.0"></a>
+## [v0.6.0] - 2026-04-03
+### Documentation
+- Clarify image topic scope in descriptions ([#56](https://github.com/Tiryoh/mcap-to-mp4/issues/56))
+
+### Features
+- Add foxglove_msgs/msg/CompressedVideo support ([#57](https://github.com/Tiryoh/mcap-to-mp4/issues/57))
+- Add optional timestamp-based VFR encoding ([#39](https://github.com/Tiryoh/mcap-to-mp4/issues/39))
+- Add end-to-end tests for MCAP-to-MP4 conversion ([#55](https://github.com/Tiryoh/mcap-to-mp4/issues/55))
+
+### Fix
+- Prevent command injection in bump-version workflow ([#60](https://github.com/Tiryoh/mcap-to-mp4/issues/60))
+
+
+[Unreleased]: https://github.com/Tiryoh/mcap-to-mp4/compare/v0.6.0...HEAD
+[v0.6.0]: https://github.com/Tiryoh/mcap-to-mp4/compare/v0.4.1...v0.6.0
+
+
 <a name="v0.5.0"></a>
 ## [v0.5.0] - 2026-03-11
 ### Documentation
@@ -12,7 +30,6 @@
 - Add end-to-end tests for MCAP-to-MP4 conversion ([#55](https://github.com/Tiryoh/mcap-to-mp4/issues/55))
 
 
-[Unreleased]: https://github.com/Tiryoh/mcap-to-mp4/compare/v0.5.0...HEAD
 [v0.5.0]: https://github.com/Tiryoh/mcap-to-mp4/compare/v0.4.1...v0.5.0
 
 
