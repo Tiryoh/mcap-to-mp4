@@ -28,11 +28,13 @@ jobs:
         uses: astral-sh/setup-uv@v5
       - name: Create release branch
         id: create-release
+        env:
+          ISSUE_TITLE: ${{ github.event.issue.title }}
         run: |
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
           git remote set-url origin https://github.com/${{ github.repository }}.git
-          export VERSION=$(echo ${{ github.event.issue.title }} | sed -E 's/Release v?([0-9\.]*)/\1/g')
+          export VERSION=$(echo "$ISSUE_TITLE" | sed -E 's/Release v?([0-9\.]*)/\1/g')
           export BRANCH=release/v$VERSION
           bash .github/scripts/update_changelog.sh $VERSION
           bash .github/scripts/update_version.sh $VERSION
@@ -43,16 +45,20 @@ jobs:
           echo release-version=$VERSION >> $GITHUB_OUTPUT
           echo created-branch=$BRANCH >> $GITHUB_OUTPUT
       - name: Sync created branch
+        env:
+          CREATED_BRANCH: ${{ steps.create-release.outputs.created-branch }}
         run: |
           git remote set-url origin https://github-actions:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
-          git push origin ${{ steps.create-release.outputs.created-branch }} > /dev/null 2>&1
+          git push origin "$CREATED_BRANCH" > /dev/null 2>&1
       - name: Create pull-request
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_VERSION: ${{ steps.create-release.outputs.release-version }}
+          CREATED_BRANCH: ${{ steps.create-release.outputs.created-branch }}
         run: |
-          gh pr create --title "release: v${{ steps.create-release.outputs.release-version}}" \
+          gh pr create --title "release: v${RELEASE_VERSION}" \
             --body "close \#${{ github.event.issue.number }}" \
             --base main \
-            --head ${{ steps.create-release.outputs.created-branch }} \
+            --head "$CREATED_BRANCH" \
             --label "Type: Maintenance" \
             --assignee ${{ github.actor }}
